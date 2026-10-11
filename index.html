@@ -110,6 +110,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 .anx{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.anx:first-child{border-top:none}
 .anxo{background:none;border:none;color:var(--tx);font-family:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0;font-size:13.5px;font-weight:600}
 .anxo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.anxo small{font-weight:400;font-size:11.5px;color:var(--mut)}
+.ntxt{white-space:pre-wrap;font-size:12.5px;color:var(--mut);margin-top:6px;font-family:ui-monospace,Menlo,monospace;line-height:1.5;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1e2533;border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-size:13.5px;z-index:9;max-width:90vw}
 @media (min-width:640px){.strip b{font-size:17px}.bigbtn{min-height:150px}}
 /* ===== v5 dashboard ===== */
@@ -375,7 +376,7 @@ function render(){
   if(!S.user){m.innerHTML=viewLogin();m.className="";return}
   const [v,sub]=S.view.split(":");m.className=(v==="home"||v==="jornada")?"":"narrow";
   if(v==="home")setTimeout(loadFx,0);
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
   m.innerHTML=(V[v]||viewHome)();
 }
@@ -389,7 +390,7 @@ function viewLogin(){return `<div class="login card">
   <div class="hint">Use o mesmo e-mail e senha da Agenda.</div><div class="err" id="lerr"></div></div>`}
 async function doLogin(){const {data,error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}await afterAuth(data.session)}
 async function doSignup(){const {data,error}=await sb.auth.signUp({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}if(data.session)await afterAuth(data.session);else $("#lerr").textContent="Conta criada. Agora toque em Entrar."}
-async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos()}go("home")}
+async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos();await seedNotas()}go("home")}
 async function sair(){await sb.auth.signOut();S.user=null;S.rows=[];render()}
 
 /* ===== Home ===== */
@@ -501,7 +502,7 @@ function viewHome(){
   <div class="foot mobile-only"><span>Conectado como <b>${esc(S.me)}</b></span><span><button class="chip" onclick="go('senha')">🔑 Senha</button> <button class="chip" onclick="sair()">Sair</button></span></div>`;
 }
 function viewJornada(){return `${backTo("home")}${jornadaPanel(true)}`}
-const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
+const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["notas","📒","Anotações","Notes & info"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
 function renderShell(){
   const side=$("#side"),top=$("#topbar");if(!S.user){side.innerHTML="";top.innerHTML="";return}
   const v=S.view.split(":")[0];
@@ -738,13 +739,63 @@ FORMS.custo={
 /* Cliente */
 FORMS.cliente={
   html(){const r=editRow();const d=D(r);F={kind:"cli",id:r?.id,back:"clientes"};
-    return `${backTo("clientes")}<div class="lbl">${r?"Editar":"Novo"} cliente</div><h2>${r?esc(d.numero):"Cliente"}</h2>
-    <div class="f"><label>Nome</label><input id="fnome" value="${esc(d.nome||"")}"></div>
-    <div class="f"><label>Contato / observação (opcional)</label><input id="fcont" value="${esc(d.contato||"")}"></div>
+    const fld=(id,lbl,val,ph="",ta=false)=>`<div class="f"><label>${lbl}</label>${ta?`<textarea id="${id}" placeholder="${ph}">${esc(val||"")}</textarea>`:`<input id="${id}" value="${esc(val||"")}" placeholder="${ph}">`}</div>`;
+    const vs=r?act("venda").filter(v=>D(v).cliente_id===r.id):[];
+    return `${backTo("clientes")}<div class="lbl">${r?"Ficha do cliente":"Novo cliente"}</div><h2>${r?esc(d.numero)+" · "+esc(d.nome):"Cliente"}</h2>
+    ${r&&vs.length?`<div class="chips" style="margin:0 0 6px">${vs.map(v=>`<button class="chip" onclick="go('venda','${v.id}')">🤿 ${esc(D(v).numero)} · ${D(v).itens?.length?fmt(vendaTotal(v),D(v).moeda):"reserva"}</button>`).join("")}</div>`:""}
+    <div class="sec"><b>Identificação</b><i></i></div>
+    ${fld("fnome","Nome (como é chamado)",d.nome,"Ex.: Erme")}
+    ${fld("fcomp","Nome completo",d.nome_completo,"Como no passaporte")}
+    <div class="row2">${fld("fpass","Passaporte nº",d.passaporte)}${fld("fdoc","CPF / outro documento",d.documento)}</div>
+    <div class="sec"><b>Contato</b><i></i></div>
+    <div class="row2">${fld("ftel","Telefone / WhatsApp",d.telefone)}${fld("femail","E-mail",d.email)}</div>
+    <div class="sec"><b>Endereços</b><i></i></div>
+    ${fld("fend","Endereço principal",d.endereco,"Rua, nº, cidade, CEP, país",true)}
+    ${fld("fent","Endereço de entrega (se diferente)",d.endereco_entrega,"Ex.: hotel / casa na Alemanha onde recebeu a unidade",true)}
+    <div class="sec"><b>Mergulho</b><i></i></div>
+    ${fld("fcert","Certificações / nível",d.certificacoes,"Ex.: TDI Trimix, crossover S7 pendente")}
+    ${fld("fcont","Observações",d.contato,"Qualquer informação útil",true)}
     ${formActions("cliente",r?.id)}`},
-  save(){const nome=$("#fnome").value.trim();if(!nome)return ferr("Digite o nome.");const r=editRow();
-    doSave("cliente",r?.data||today(),{numero:D(r).numero||nextNum("cliente","C"),nome,contato:$("#fcont").value.trim()},F.id);}
+  save(){const nome=$("#fnome").value.trim();if(!nome)return ferr("Digite o nome.");const r=editRow();const g=id=>$("#"+id).value.trim();
+    doSave("cliente",r?.data||today(),{...D(r),numero:D(r).numero||nextNum("cliente","C"),nome,nome_completo:g("fcomp"),passaporte:g("fpass"),documento:g("fdoc"),telefone:g("ftel"),email:g("femail"),endereco:g("fend"),endereco_entrega:g("fent"),certificacoes:g("fcert"),contato:g("fcont")},F.id);}
 };
+
+/* Anotações */
+const NCATS=["Fornecedor / Banco","Endereço","Documento","Logística","Contato","Outro"];
+FORMS.nota={
+  html(){const r=editRow();const d=D(r);F={kind:"nota",id:r?.id,back:"notas",ncat:d.cat||(S.param?.cat)||"Outro"};
+    return `${backTo("notas")}<div class="lbl">${r?"Editar":"Nova"} anotação</div><h2>📒 Anotação</h2>
+    <div class="f"><label>Categoria</label>${pills("ncat",NCATS,F.ncat)}</div>
+    <div class="f"><label>Título</label><input id="ftit" value="${esc(d.titulo||"")}" placeholder="Ex.: Smartdive · dados bancários"></div>
+    <div class="f"><label>Ligada a um cliente? (opcional)</label><select id="fncli"><option value="">— Nenhum —</option>${act("cliente").map(c=>`<option value="${c.id}" ${c.id===d.cliente_id?"selected":""}>${esc(D(c).numero)} · ${esc(D(c).nome)}</option>`).join("")}</select></div>
+    <div class="f"><label>Texto</label><textarea id="ftxt" style="min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:14px" placeholder="Escreva livremente: números de conta, endereços, contatos…">${esc(d.texto||"")}</textarea>
+    <button type="button" class="chip" style="margin-top:8px" onclick="copiar($('#ftxt').value)">📋 Copiar texto</button></div>
+    ${formActions("nota",r?.id)}`},
+  save(){const tit=$("#ftit").value.trim();if(!tit)return ferr("Dê um título.");const r=editRow();
+    doSave("nota",r?.data||today(),{...D(r),cat:F.ncat,titulo:tit,texto:$("#ftxt").value,cliente_id:$("#fncli").value},F.id);}
+};
+async function copiar(t){try{await navigator.clipboard.writeText(t);toast("Copiado ✓")}catch(e){toast("Não consegui copiar")}}
+function viewNotas(){
+  const q=(S.nq||"").toLowerCase(),c=S.nc||"Todas";
+  let ns=act("nota");if(c!=="Todas")ns=ns.filter(n=>D(n).cat===c);
+  if(q)ns=ns.filter(n=>(D(n).titulo+" "+D(n).texto).toLowerCase().includes(q));
+  ns.sort((a,b)=>String(D(a).titulo).localeCompare(D(b).titulo));
+  return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>📒 Anotações</h2><button class="chip" onclick="go('form:nota',{cat:'${c==="Todas"?"Outro":c}'})">+ Anotação</button></div>
+  <input class="search" placeholder="🔍 Buscar nas anotações…" value="${esc(S.nq||"")}" oninput="S.nq=this.value;clearTimeout(window._nt);window._nt=setTimeout(()=>{render();const i=document.querySelector('main .search');i.focus();i.setSelectionRange(i.value.length,i.value.length)},250)" style="margin-bottom:10px">
+  <div class="fpills">${["Todas",...NCATS].map(k=>`<button class="fpill ${c===k?"on":""}" onclick="S.nc='${k}';render()">${k} ${k==="Todas"?act("nota").length:act("nota").filter(n=>D(n).cat===k).length}</button>`).join("")}</div>
+  <div class="list">${ns.map(n=>{const d=D(n);return `<div class="card item" onclick="go('form:nota','${n.id}')"><div class="l1"><b>${esc(d.titulo)}</b><span class="tag">${esc(d.cat)}</span></div>
+   <div class="ntxt">${esc((d.texto||"").split("\n").slice(0,4).join("\n"))}${(d.texto||"").split("\n").length>4?"\n…":""}</div>
+   <div class="l2"><span>${d.cliente_id?"👤 "+esc(cliNome(d.cliente_id))+" · ":""}${(d.anexos||[]).length?"📎 "+d.anexos.length:""}</span><button class="chip" style="min-height:34px;padding:5px 12px" onclick="event.stopPropagation();copiar(D(byId('${n.id}')).texto||'')">📋 Copiar</button></div></div>`}).join("")||'<div class="empty">Nenhuma anotação. Toque em “+ Anotação”.</div>'}</div>
+  <div class="sec"><b>Fichas de clientes</b><i></i></div><div class="hint">Passaporte, endereços e contatos de cada cliente ficam na ficha dele: menu <b>Clientes</b> → toque no nome.</div>`;
+}
+async function seedNotas(){
+  try{
+    if(!S.rows.some(r=>r.tipo==="nota"&&D(r).seed==="smartdive-banco"))await saveRow("nota",today(),{seed:"smartdive-banco",cat:"Fornecedor / Banco",titulo:"Smartdive · dados da empresa e bancários",texto:"SMARTDIVE, LDA\nRua Garcia de Resende Nº 9, 2º Esq\n2500-208 Caldas da Rainha, Portugal\nNIF: PT515579580\nE-mail: im@smartdive.com\n\nBanco: NOVO BANCO, S.A.\nAvenida da Liberdade, 195, 1250-142 Lisboa\nIBAN: PT50 0007 0000 0046 8952 0302 3\nSWIFT/BIC: BESCPTPLXXX\n\nFonte: pró-forma FP 2026A/17 (set/2026). Confirme com o Ivan antes de cada transferência."});
+    const erme=act("cliente").find(c=>/erme|emerson/i.test(D(c).nome));
+    if(erme&&!D(erme).passaporte&&!D(erme).seed_ok)await saveRow("cliente",erme.data,{...D(erme),seed_ok:true,nome_completo:"Emerson Fabbri Covisi",passaporte:"GO158400",endereco:"Rua Dr. Cezário Bastos, 365, apto 41\n09040-330 Santo André – SP, Brasil"},erme.id);
+    await load();
+  }catch(e){}
+}
 
 /* Produto */
 FORMS.produto={
@@ -791,7 +842,7 @@ async function vRemItem(id,i){const v=byId(id),d={...D(v)};d.itens=(d.itens||[])
 function viewVendaDet(){
   const v=byId(S.param);if(!v)return viewVendas();const d=D(v),l=vendaLucro(v),s=vendaSaldo(v);
   const e=d.entrega;
-  return `${backTo("vendas")}<div class="lbl">Venda ${esc(d.numero)}${v.status==="cancelado"?" · cancelada":""}</div><h2>${esc(cliNome(d.cliente_id))} ${etapaTag(v)}</h2>
+  return `${backTo("vendas")}<div class="lbl">Venda ${esc(d.numero)}${v.status==="cancelado"?" · cancelada":""}</div><h2>${esc(cliNome(d.cliente_id))} ${etapaTag(v)} <button class="chip" style="min-height:32px;padding:4px 12px;vertical-align:middle" onclick="go('form:cliente','${d.cliente_id}')">👤 ficha</button></h2>
   <div class="sec"><b>🤿 O que foi vendido</b><i></i><small>${(d.itens||[]).length} item(ns)</small></div>
   <div class="card">
    ${(d.itens||[]).length?`<div class="vitems">${(d.itens||[]).map((it,i)=>`<div class="vit"><div><b>${fmtN(it.qtd,0)}× ${esc(itNome(it))}</b><div class="small mut">${fmt(it.preco,d.moeda)} cada${it.desc?` · desconto ${fmtN(it.desc,1)}%`:""}${it.produto_id?"":" · digitado à mão"}</div></div><div class="right"><b>${fmt(itemTot(it),d.moeda)}</b><br><button class="linkbtn" onclick="vRemItem('${v.id}',${i})">remover</button></div></div>`).join("")}</div>`
@@ -855,7 +906,7 @@ function viewClientes(){
   const cs=act("cliente").slice().sort((a,b)=>String(D(a).numero).localeCompare(D(b).numero));
   return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>Clientes</h2><button class="chip" onclick="go('form:cliente')">+ Cliente</button></div>
   <div class="list">${cs.length?cs.map(c=>{const vs=act("venda").filter(v=>D(v).cliente_id===c.id);const deve=sum(vs,v=>Math.max(0,vendaSaldo(v))*(D(v).cot?.[D(v).moeda]||0));
-   return `<button class="card item" onclick="go('form:cliente','${c.id}')"><div class="l1"><b>${esc(D(c).numero)} · ${esc(D(c).nome)}</b><b>${vs.length} venda${vs.length===1?"":"s"}</b></div><div class="l2"><span>${esc(D(c).contato||"")}</span><span>${deve>0.01?st("deve "+fmt(deve),"warn"):""}</span></div></button>`}).join(""):'<div class="empty">Nenhum cliente ainda. Eles também são criados ao lançar uma venda.</div>'}</div>`;
+   return `<button class="card item" onclick="go('form:cliente','${c.id}')"><div class="l1"><b>${esc(D(c).numero)} · ${esc(D(c).nome)}</b><b>${vs.length} venda${vs.length===1?"":"s"}</b></div><div class="l2"><span>${[D(c).telefone,D(c).passaporte?"🛂 "+D(c).passaporte:"",(D(c).anexos||[]).length?"📎 "+D(c).anexos.length:""].filter(Boolean).map(esc).join(" · ")||esc(D(c).contato||"")}</span><span>${deve>0.01?st("deve "+fmt(deve),"warn"):""}</span></div></button>`}).join(""):'<div class="empty">Nenhum cliente ainda. Eles também são criados ao lançar uma venda.</div>'}</div>`;
 }
 function viewProdutos(){
   const ps=act("produto");
@@ -923,15 +974,16 @@ async function trocarSenha(){const a=$("#np1").value,b=$("#np2").value;
   if(a.length<6)return ferr("A senha precisa ter pelo menos 6 caracteres.");if(a!==b)return ferr("As duas senhas não são iguais.");
   $("#fsave").disabled=true;const {error}=await sb.auth.updateUser({password:a});
   if(error)return ferr("Não deu certo: "+error.message);toast("Senha alterada ✓");go("home")}
-const TIPOS={compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
+const TIPOS={nota:"Anotação",compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
 function resumo(r){const d=D(r);switch(r.tipo){
   case"compra":return `${d.numero} · ${d.doc||d.fornecedor} · ${fmt(d.total,"EUR")}`;
   case"pagamento":return `${fmt(d.valor,d.moeda)} → ${D(byId(d.compra_id)).numero||""}`;
   case"venda":return `${d.numero} · ${cliNome(d.cliente_id)} · ${fmt(d.total,d.moeda)}`;
   case"recebimento":return `${fmt(d.valor,d.moeda)} ← ${D(byId(d.venda_id)).numero||""}`;
   case"custo":return `${d.cat} · ${fmt(d.valor,d.moeda)}`;
+  case"nota":return d.titulo;
   case"cliente":return `${d.numero} · ${d.nome}`;case"produto":return d.nome}}
-function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
+function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],nota:["form:nota",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
 function viewHistorico(){
   let rs=S.rows.filter(r=>r.tipo!=="import").sort((a,b)=>String(b.created_at).localeCompare(a.created_at));
   if(S.hist==="cancelados")rs=rs.filter(r=>r.status==="cancelado");
@@ -979,14 +1031,14 @@ async function importarJP(){
     const it2=[["Plastic Canister (main set + capa)",1,4159.78],["QC6 female 9/16",1,81.18],["QC6 male 9/16",2,81.18],["QC4 male 9/16",1,81.18],["QC4 female 9/16",1,81.18]].map(([nome,qtd,preco])=>({produto_id:"",nome,qtd,preco}));
     const p2={numero:nextNum("compra","P"),fornecedor:"Smartdive",doc:"FP 2026A/20",itens:it2,frete:57.50,iva:0,venda_id:veid,obs:"Sem IVA (fatura reemitida sem carimbo de exportação)",cot:cC,moeda:"EUR"};p2.total=r2(compraTotal({dados:p2}));
     await add("compra","2026-10-05",p2);
-    await add("import",today(),{key:IMPORT_KEY});
+    await add("import",today(),{key:IMPORT_KEY});await seedNotas();
     toast("Importado ✓");go("painel");
   }catch(e){toast("Erro na importação: "+(e.message||e));b.disabled=false;b.textContent="Importar agora"}
 }
 
 /* ===== Anexos (Supabase Storage) ===== */
 const BUCKET="mts7-anexos";
-const ANX_TIPOS=["compra","pagamento","venda","recebimento","custo"];
+const ANX_TIPOS=["compra","pagamento","venda","recebimento","custo","cliente","nota"];
 const ACCEPT="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.heic,.zip";
 const fsize=b=>b>1048576?fmtN(b/1048576,1)+" MB":Math.max(1,Math.round((b||0)/1024))+" KB";
 const ficon=n=>/\.pdf$/i.test(n)?"📄":/\.(png|jpe?g|heic|webp|gif)$/i.test(n)?"🖼️":"📎";
