@@ -806,7 +806,7 @@ async function seedNotas(){
 FORMS.produto={
   html(){const r=editRow();const d=D(r);F={kind:"prod",id:r?.id,back:"produtos",ptipo:d.tipo||"Peça"};
     return `${backTo("produtos")}<div class="lbl">${r?"Editar":"Novo"} produto</div><h2>Produto</h2>
-    <div class="row2"><div class="f"><label>Código</label><input id="fcod" value="${esc(d.codigo||"")}" placeholder="Ex.: S7-CEL" style="text-transform:uppercase"></div><div class="f"><label>Ref. Smartdive</label><input id="fref" value="${esc(d.ref||"")}" placeholder="Ex.: Acc #3"></div></div>
+    <div class="row2"><div class="f"><label>Código</label><input id="fcod" inputmode="numeric" value="${esc(d.codigo||(r?"":nextCod()))}" placeholder="Ex.: 017"></div><div class="f"><label>Ref. Smartdive</label><input id="fref" value="${esc(d.ref||"")}" placeholder="Ex.: Acc #3"></div></div>
     <div class="f"><label>Nome (português)</label><input id="fnome" value="${esc(d.nome||"")}"></div>
     <div class="f"><label>Nome na lista da Smartdive</label><input id="fnen" value="${esc(d.nome_en||"")}"></div>
     <div class="f"><label>Tipo</label>${pills("ptipo",["Conjunto CCR","Peça"],F.ptipo)}</div>
@@ -1109,32 +1109,33 @@ document.addEventListener("drop",async e=>{if(!temArquivo(e))return;e.preventDef
 
 /* ===== Catálogo codificado ===== */
 const CATALOGO=[
- ["S7-KIT","Kit básico S7 (main set ready-to-dive)","Conjunto CCR",4091.80,4990,"Main Set (Ready-to-Dive) – complete","Smartdive · Main Set total"],
- ["S7-UNIT","S7 CCR com um cabo AK4","Peça",2913.46,3553,"S7 CCR with one AK4 cable","Main #1"],
- ["S7-CLR","Contrapulmão direito (conectores + OPV)","Peça",594.50,725,"Right Counterlung Assembly with connectors and OPV valve","Main #2"],
- ["S7-CLL","Contrapulmão esquerdo (conectores + OPV)","Peça",594.50,725,"Left Counterlung Assembly with connectors and OPV valve","Main #3"],
- ["S7-MAVN","MAV com válvula agulha","Peça",369,450,"MAV with Needle Valve (9/16 ports, adapters, Miflex hose, 90° adapter)","Main #4"],
- ["S7-INF","Conector de inflador (diluente)","Peça",12.38,15.10,"Inflator Connector for MAV to connect Diluent","Main #5"],
- ["S7-ADP","Adaptador 3/8–9/16 (oxigênio)","Peça",8.12,9.90,"Adapter 3/8 male – 9/16 male for MAV to connect Oxy","Main #6"],
- ["S7-CEL","Célula galvânica de O₂","Peça",64.78,79,"Oxygen Galvanic Cell with coax connector","Main #7"],
- ["S7-CAL","Capa de calibração","Peça",80.36,98,"Calibration Cap for oxygen cells","Acc #1"],
- ["S7-MAVO","MAV com orifício","Peça",369,450,"MAV with Orifice (9/16 ports, adapters, Miflex hose, 90° adapter, 1st stage plug)","Acc #2"],
- ["SW-QC4F","Swagelok QC4 fêmea","Peça",81.18,99,"Swagelok QC4 Connector Female for MAV to connect Oxy","Acc #3"],
- ["SW-QC4M","Swagelok QC4 macho","Peça",81.18,99,"Swagelok QC4 Connector Male","Acc #4"],
- ["SW-QC6F","Swagelok QC6 fêmea","Peça",81.18,99,"Swagelok QC6 Connector Female for MAV to connect Dil","Acc #5"],
- ["SW-QC6M","Swagelok QC6 macho","Peça",81.18,99,"Swagelok QC6 Connector Male","Acc #6"],
- ["SH-PET3","Shearwater Petrel 3 + cabo AK4 18\"","Peça",1176.70,1435,"Shearwater Petrel 3 with AK4 18-inch cable","Acc #7"],
- ["S7-AK4","Segundo conjunto de cabo AK4","Peça",287,350,"Second AK4 cable assembly","tabela antiga (set/2026)"]
+ ["001","Kit básico S7 (main set ready-to-dive)","Conjunto CCR",4091.80,4990,"Main Set (Ready-to-Dive) – complete","Smartdive · Main Set total","S7-KIT"],
+ ["002","S7 CCR com um cabo AK4","Peça",2913.46,3553,"S7 CCR with one AK4 cable","Main #1","S7-UNIT"],
+ ["003","Contrapulmão direito (conectores + OPV)","Peça",594.50,725,"Right Counterlung Assembly with connectors and OPV valve","Main #2","S7-CLR"],
+ ["004","Contrapulmão esquerdo (conectores + OPV)","Peça",594.50,725,"Left Counterlung Assembly with connectors and OPV valve","Main #3","S7-CLL"],
+ ["005","MAV com válvula agulha","Peça",369,450,"MAV with Needle Valve (9/16 ports, adapters, Miflex hose, 90° adapter)","Main #4","S7-MAVN"],
+ ["006","Conector de inflador (diluente)","Peça",12.38,15.10,"Inflator Connector for MAV to connect Diluent","Main #5","S7-INF"],
+ ["007","Adaptador 3/8–9/16 (oxigênio)","Peça",8.12,9.90,"Adapter 3/8 male – 9/16 male for MAV to connect Oxy","Main #6","S7-ADP"],
+ ["008","Célula galvânica de O₂","Peça",64.78,79,"Oxygen Galvanic Cell with coax connector","Main #7","S7-CEL"],
+ ["009","Capa de calibração","Peça",80.36,98,"Calibration Cap for oxygen cells","Acc #1","S7-CAL"],
+ ["010","MAV com orifício","Peça",369,450,"MAV with Orifice (9/16 ports, adapters, Miflex hose, 90° adapter, 1st stage plug)","Acc #2","S7-MAVO"],
+ ["011","Swagelok QC4 fêmea","Peça",81.18,99,"Swagelok QC4 Connector Female for MAV to connect Oxy","Acc #3","SW-QC4F"],
+ ["012","Swagelok QC4 macho","Peça",81.18,99,"Swagelok QC4 Connector Male","Acc #4","SW-QC4M"],
+ ["013","Swagelok QC6 fêmea","Peça",81.18,99,"Swagelok QC6 Connector Female for MAV to connect Dil","Acc #5","SW-QC6F"],
+ ["014","Swagelok QC6 macho","Peça",81.18,99,"Swagelok QC6 Connector Male","Acc #6","SW-QC6M"],
+ ["015","Shearwater Petrel 3 + cabo AK4 18\"","Peça",1176.70,1435,"Shearwater Petrel 3 with AK4 18-inch cable","Acc #7","SH-PET3"],
+ ["016","Segundo conjunto de cabo AK4","Peça",287,350,"Second AK4 cable assembly","tabela antiga (set/2026)","S7-AK4"]
 ];
-const CAT_KEY="catalogo-v1";
+const CAT_KEY="catalogo-v2";
 const pCod=p=>D(p).codigo||"";
+const nextCod=()=>String(Math.max(0,...act("produto").map(p=>parseInt(pCod(p))||0))+1).padStart(3,"0");
 const byCod=c=>act("produto").find(p=>pCod(p)===c);
 const prodsOrd=()=>act("produto").slice().sort((a,b)=>(pCod(a)||"ZZZ"+D(a).nome).localeCompare(pCod(b)||"ZZZ"+D(b).nome));
 async function migrarCatalogo(){
   if(S.rows.some(r=>r.tipo==="import"&&D(r).key===CAT_KEY))return;
   try{
-    for(const [codigo,nome,tipo,dealer,varejo,nome_en,ref] of CATALOGO){
-      const p=act("produto").find(x=>pCod(x)===codigo||D(x).nome===nome);
+    for(const [codigo,nome,tipo,dealer,varejo,nome_en,ref,antigo] of CATALOGO){
+      const p=act("produto").find(x=>pCod(x)===codigo||pCod(x)===antigo)||act("produto").find(x=>D(x).nome===nome);
       if(p)await saveRow("produto",p.data,{...D(p),codigo,nome_en,ref,tipo:D(p).tipo||tipo},p.id);
       else await saveRow("produto",today(),{codigo,nome,tipo,dealer,varejo,nome_en,ref});
     }
@@ -1144,13 +1145,13 @@ async function migrarCatalogo(){
 /* sugestão de código para itens digitados à mão */
 function sugerir(nome){
   const n=(nome||"").toLowerCase();
-  if(/s7 kit|unidade do jp/.test(n))return"a:S7-KIT";
+  if(/s7 kit|unidade do jp/.test(n))return"a:001";
   if(/snap|mangueira|hose|bracket|adapter ap|double ender|ring|camiset|t-?shirt|sofno/.test(n))return"c";
-  if(/canister|main set/.test(n))return /capa|cap/.test(n)?"split":"p:S7-KIT";
-  const qc=n.match(/qc ?(4|6)/);if(qc){if(/female|f[eê]mea|femea/.test(n))return`p:SW-QC${qc[1]}F`;if(/male|macho/.test(n))return`p:SW-QC${qc[1]}M`;return""}
-  if(/petrel/.test(n))return"p:SH-PET3";if(/c[eé]lula|cell/.test(n))return"p:S7-CEL";if(/calibra/.test(n))return"p:S7-CAL";
-  if(/right counter|contrapulm.*dir/.test(n))return"p:S7-CLR";if(/left counter|contrapulm.*esq/.test(n))return"p:S7-CLL";
-  if(/needle|agulha/.test(n))return"p:S7-MAVN";if(/orif/.test(n))return"p:S7-MAVO";if(/inflat|inflador/.test(n))return"p:S7-INF";if(/adapt.*3\/8/.test(n))return"p:S7-ADP";if(/ak4/.test(n))return"p:S7-AK4";
+  if(/canister|main set/.test(n))return /capa|cap/.test(n)?"split":"p:001";
+  const qc=n.match(/qc ?(4|6)/);if(qc){if(/female|f[eê]mea|femea/.test(n))return qc[1]==="4"?"p:011":"p:013";if(/male|macho/.test(n))return qc[1]==="4"?"p:012":"p:014";return""}
+  if(/petrel/.test(n))return"p:015";if(/c[eé]lula|cell/.test(n))return"p:008";if(/calibra/.test(n))return"p:009";
+  if(/right counter|contrapulm.*dir/.test(n))return"p:003";if(/left counter|contrapulm.*esq/.test(n))return"p:004";
+  if(/needle|agulha/.test(n))return"p:005";if(/orif/.test(n))return"p:010";if(/inflat|inflador/.test(n))return"p:006";if(/adapt.*3\/8/.test(n))return"p:007";if(/ak4/.test(n))return"p:016";
   return"";
 }
 const USO={estoque:"Estoque (revenda)",ativo:"Ativo da empresa",consumo:"Consumo / uso próprio"};
@@ -1165,16 +1166,16 @@ function optsMapa(sel){
   const o=prodsOrd();
   return `<option value="">Escolha…</option>
   <optgroup label="Estoque (revenda)">${o.map(p=>`<option value="p:${pCod(p)||p.id}" ${sel==="p:"+(pCod(p)||p.id)?"selected":""}>${esc(pCod(p))} · ${esc(D(p).nome)}</option>`).join("")}</optgroup>
-  <optgroup label="Outras opções"><option value="split" ${sel==="split"?"selected":""}>Dividir: S7-KIT + S7-CAL (capa a preço dealer)</option>
-  <option value="a:S7-KIT" ${sel==="a:S7-KIT"?"selected":""}>S7-KIT · ATIVO da empresa (unidade demo)</option>
-  <option value="a:S7-UNIT" ${sel==="a:S7-UNIT"?"selected":""}>S7-UNIT · ATIVO da empresa</option>
+  <optgroup label="Outras opções"><option value="split" ${sel==="split"?"selected":""}>Dividir: 001 Kit + 009 Capa de calibração (capa a preço dealer)</option>
+  <option value="a:001" ${sel==="a:001"?"selected":""}>001 Kit · ATIVO da empresa (unidade demo)</option>
+  <option value="a:002" ${sel==="a:002"?"selected":""}>002 S7 CCR · ATIVO da empresa</option>
   <option value="c" ${sel==="c"?"selected":""}>Não é estoque · consumo / uso próprio</option></optgroup>`;
 }
 function resolveP(code){return byCod(code)||byId(code)}
 function aplicaMapa(itens,i,val){
   const it=itens[i],base={...it,nome_orig:it.nome_orig||it.nome};
   if(val==="c"){itens[i]={...base,uso:"consumo"};return true}
-  if(val==="split"){const kit=byCod("S7-KIT"),cal=byCod("S7-CAL");if(!kit||!cal)return false;const pc=num(D(cal).dealer);
+  if(val==="split"){const kit=byCod("001"),cal=byCod("009");if(!kit||!cal)return false;const pc=num(D(cal).dealer);
     itens.splice(i,1,{...base,produto_id:kit.id,nome:"",uso:"estoque",preco:r2(num(it.preco)-pc)},{produto_id:cal.id,nome:"",nome_orig:base.nome_orig,qtd:it.qtd,preco:pc,desc:it.desc||0,uso:"estoque"});return true}
   const [k,code]=val.split(":");const p=resolveP(code);if(!p)return false;
   itens[i]={...base,produto_id:p.id,nome:"",uso:k==="a"?"ativo":"estoque"};return true;
