@@ -91,7 +91,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 .item .l1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .item .l1 b{font-weight:600;font-size:14.5px}
 .item .l2{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--mut);margin-top:4px}
-.tag{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.06em;border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--mut);text-transform:uppercase}
+.tag{white-space:nowrap;display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.06em;border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--mut);text-transform:uppercase}
 .tag.ok{color:var(--ok);border-color:#1f5b44}.tag.warn{color:var(--warn);border-color:#5e4517}.tag.x{color:#ff7a7f;border-color:#5a1d20}
 .kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13.5px}
 .kv dt{color:var(--mut)} .kv dd{text-align:right;font-weight:500}
@@ -158,6 +158,8 @@ aside{display:none}
 .st.done i{background:var(--red);border-color:var(--red)}
 .st.cur i{background:#0a0d12;border-color:var(--red);box-shadow:0 0 0 4px rgba(216,35,42,.22)}
 .st.done,.st.cur{color:var(--tx)}
+.st.pul i{background:#0a0d12;border-color:var(--warn);box-shadow:0 0 0 4px rgba(245,176,65,.18)}.st.pul{color:var(--warn);font-weight:700}
+.st.pul::before{background:#2a3140}
 .st.cur{font-weight:700}
 .jmeta{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--mut);margin-top:6px}
 .jmeta b{color:var(--tx);font-weight:600}
@@ -413,20 +415,22 @@ function totais(){
 const PASSOS=["Reserva","Config.","Pedido","Pago S7","Entregue","Quitado"];
 function jornada(v){
   const d=D(v),cs=comprasDe(v),saldo=vendaSaldo(v),temItens=(d.itens||[]).length>0;
-  const ok=[true,temItens,cs.length>0,cs.length>0&&cs.every(c=>compraSaldo(c)<=0.01),!!d.entrega,temItens&&saldo<=0.01];
+  const devS7=sum(cs,c=>Math.max(0,compraSaldo(c)));
+  const ok=[true,temItens,cs.length>0,cs.length>0&&devS7<=0.01,!!d.entrega,temItens&&saldo<=0.01];
   let cur=ok.findIndex(x=>!x);if(cur<0)cur=PASSOS.length;
-  let prox="—",tipo="";
-  if(!ok[1]){prox="Definir configuração";tipo="y"}
-  else if(!ok[2]){prox="Fazer pedido à Smartdive";tipo="y"}
-  else if(!ok[3]){prox="Pagar Smartdive "+fmt(sum(cs,c=>Math.max(0,compraSaldo(c))),"EUR");tipo=""}
-  else if(!ok[4]){prox="Entregar ao cliente";tipo=""}
-  else if(!ok[5]){prox="Receber "+fmt(saldo,d.moeda);tipo=""}
-  else{prox="Concluída ✓";tipo="g"}
-  if(ok[4]&&!ok[5])prox="Receber "+fmt(saldo,d.moeda);
-  const status=cur>=PASSOS.length?["concluída","ok"]:!ok[1]?["reserva",""]:!ok[4]?["em andamento","warn"]:["a receber","warn"];
-  return{ok,cur,prox,tipo,status};
+  const pend=[];
+  if(!ok[1])pend.push("Definir configuração");
+  if(ok[1]&&!ok[2])pend.push("Fazer pedido à Smartdive");
+  if(ok[2]&&!ok[3])pend.push("Pagar Smartdive "+fmt(devS7,"EUR"));
+  if(ok[1]&&!ok[4])pend.push("Entregar ao cliente");
+  if(ok[1]&&!ok[5])pend.push("Receber "+fmt(Math.max(0,saldo),d.moeda));
+  const agora=ok[4]?pend:pend.slice(0,1); // antes da entrega: só o próximo passo; depois: todas as pendências
+  const prox=agora.length?agora.join(" · "):"Concluída ✓";
+  const tipo=!pend.length?"g":(!ok[1]||!ok[2])?"y":"";
+  const status=!pend.length?["concluída","ok"]:!ok[1]?["reserva",""]:ok[4]?["entregue · pendente","warn"]:["em andamento","warn"];
+  return{ok,cur,prox,pend,agora,tipo,status};
 }
-function stepsHtml(j){return `<div class="steps">${PASSOS.map((p,i)=>`<div class="st ${j.ok[i]&&i<j.cur?"done":""} ${i===j.cur?"cur":""}"><i></i>${p}</div>`).join("")}</div>`}
+function stepsHtml(j){const last=j.ok.lastIndexOf(true);return `<div class="steps">${PASSOS.map((p,i)=>{const pul=!j.ok[i]&&i<last;return `<div class="st ${j.ok[i]?"done":""} ${pul?"pul":""} ${i===j.cur&&!pul?"cur":""}"><i></i>${p}</div>`}).join("")}</div>`}
 const ini=n=>String(n||"?").replace(/\(.*?\)/g,"").trim().split(/\s+/).map(x=>x[0]).slice(0,2).join("").toUpperCase();
 function jrowHtml(v){const d=D(v),c=byId(d.cliente_id),j=jornada(v),s=vendaSaldo(v);
   return `<button class="jrow" onclick="go('venda','${v.id}')">
@@ -435,7 +439,7 @@ function jrowHtml(v){const d=D(v),c=byId(d.cliente_id),j=jornada(v),s=vendaSaldo
    <div class="jmeta"><span>Próximo: <b>${esc(j.prox)}</b></span><span>${d.entrega?"📍 "+esc(d.entrega.local||"entregue")+" · "+dCurta(d.entrega.data):isRes(v)?"adiantou "+fmt(vendaRecebido(v),d.moeda):s>0.01?"saldo "+fmt(s,d.moeda):""}</span></div>
    <div class="jst">${st(j.status[0],j.status[1])}</div></button>`}
 const JF={todos:"Todos",reserva:"Reserva",pedido:"Em andamento",entrega:"A entregar",receber:"A receber",ok:"Concluídas"};
-function jfilter(v,f){const j=jornada(v);switch(f){case"reserva":return !j.ok[1];case"pedido":return j.ok[1]&&!j.ok[4];case"entrega":return j.ok[1]&&!j.ok[4];case"receber":return j.ok[1]&&!j.ok[5]&&vendaSaldo(v)>0.01;case"ok":return j.cur>=PASSOS.length;default:return true}}
+function jfilter(v,f){const j=jornada(v);switch(f){case"reserva":return !j.ok[1];case"pedido":return j.ok[1]&&!j.ok[4];case"entrega":return j.ok[1]&&!j.ok[4];case"receber":return j.ok[1]&&!j.ok[5]&&vendaSaldo(v)>0.01;case"ok":return !j.pend.length;default:return true}}
 function jornadaPanel(full){
   const all=act("venda");const f=S.jf||"todos",q=(S.q||"").toLowerCase();
   let vs=all.filter(v=>jfilter(v,f));
@@ -449,7 +453,7 @@ function jornadaPanel(full){
 }
 function proximasAcoes(){
   const a=[];
-  act("venda").forEach(v=>{const j=jornada(v),n=D(byId(D(v).cliente_id)).nome;if(j.cur<PASSOS.length)a.push({t:`${j.prox} · <b>${esc(n)}</b>`,c:j.tipo,go:`go('venda','${v.id}')`,o:j.cur})});
+  act("venda").forEach(v=>{const j=jornada(v),n=D(byId(D(v).cliente_id)).nome;j.agora.forEach((p,k)=>a.push({t:`${p} · <b>${esc(n)}</b>`,c:/configura|pedido/i.test(p)?"y":"",go:`go('venda','${v.id}')`,o:j.cur+k/10}))});
   SOCIOS.forEach(n=>{const l=socioLiq(n);if(l<-0.01)a.push({t:`Reembolsar <b>${n}</b> ${fmt(-l)}`,c:"y",go:`go('socio','${n}')`,o:9})});
   return a.sort((x,y)=>x.o-y.o);
 }
