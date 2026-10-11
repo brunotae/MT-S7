@@ -254,7 +254,7 @@ function render(){
   const m=$("#main");
   if(!S.user){m.innerHTML=viewLogin();return}
   const [v,sub]=S.view.split(":");
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
   m.innerHTML=(V[v]||viewHome)();
 }
@@ -306,8 +306,11 @@ function viewHome(){
     <button class="chip" onclick="go('clientes')">Clientes</button>
     <button class="chip" onclick="go('produtos')">Produtos</button>
     <button class="chip" onclick="go('estoque')">Estoque</button>
+    <button class="chip" onclick="go('socio','Tae')">👤 Tae</button>
+    <button class="chip" onclick="go('socio','Johnny')">👤 Johnny</button>
     <button class="chip" onclick="go('historico')">Histórico</button>
-  </div>`;
+  </div>
+  <div class="foot"><span>Conectado como <b>${esc(S.me)}</b> · ${esc(S.user?.email)}</span><button class="chip" onclick="sair()">Sair</button></div>`;
 }
 
 /* ===== Form helpers ===== */
@@ -655,12 +658,28 @@ function viewPainel(){
    <div class="card"><div class="lbl">Caixa da empresa</div><b class="${t.caixa>=0?"ok":"redt"}">${fmt(t.caixa)}</b><div class="small mut">${t.caixa<0?"sócios bancando":"sobra"}</div></div>
   </div>
   <div class="sec"><b>Sócios · conta com a empresa</b><i></i></div>
-  ${soc.map(x=>`<div class="card" style="margin-bottom:8px"><dl class="kv"><dt><b>${x.n}</b> · gastou pela empresa</dt><dd>${fmt(x.colocou)}</dd><dt>recebeu de clientes (está com ele)</dt><dd>${fmt(x.recebeu)}</dd>
-   <dt class="tt">${x.liq<-0.01?"Empresa deve reembolsar":x.liq>0.01?"Está com dinheiro da empresa":"Zerado"}</dt><dd class="tt ${x.liq<-0.01?"warn":x.liq>0.01?"ok":""}">${fmt(Math.abs(x.liq))}</dd></dl></div>`).join("")}
+  ${soc.map(x=>`<div class="card item" style="margin-bottom:8px" onclick="go('socio','${x.n}')"><dl class="kv"><dt><b>${x.n}</b> · gastou pela empresa</dt><dd>${fmt(x.colocou)}</dd><dt>recebeu de clientes (está com ele)</dt><dd>${fmt(x.recebeu)}</dd>
+   <dt class="tt">${x.liq<-0.01?"Empresa deve reembolsar":x.liq>0.01?"Está com dinheiro da empresa":"Zerado"}</dt><dd class="tt ${x.liq<-0.01?"warn":x.liq>0.01?"ok":""}">${fmt(Math.abs(x.liq))}</dd></dl><div class="hint redt">Ver lançamentos de ${x.n} →</div></div>`).join("")}
   <div class="card"><dl class="kv"><dt>Lucro previsto · Tae (50%)</dt><dd>${fmt(t.lucro/2)}</dd><dt>Lucro previsto · Johnny (50%)</dt><dd>${fmt(t.lucro/2)}</dd></dl>
    <div class="hint">“Gastou” = pagamentos à Smartdive + custos pagos por ele. “Recebeu” = dinheiro de clientes que ficou com ele.</div></div>
   <div class="sec"><b>Quem deve</b><i></i></div>
   <div class="list">${devedores.map(x=>`<div class="card item"><div class="l1"><b>${esc(D(x.c).numero)} · ${esc(D(x.c).nome)}</b><b class="warn">${fmt(x.deve)}</b></div></div>`).join("")||'<div class="empty">Ninguém devendo.</div>'}</div>`;
+}
+function viewSocio(){
+  const n=S.param||"Tae";
+  const ent=[...act("pagamento").filter(p=>D(p).pago_por===n).map(r=>({r,t:"Pagamento S7",d:D(byId(D(r).compra_id)).doc||D(byId(D(r).compra_id)).numero||"",s:-1})),
+    ...act("custo").filter(c=>D(c).pago_por===n).map(r=>({r,t:"Custo · "+D(r).cat,d:D(r).desc||"",s:-1})),
+    ...act("recebimento").filter(x=>D(x).recebido_por===n).map(r=>{const v=byId(D(r).venda_id);return{r,t:"Recebeu",d:`${D(v).numero||""} · ${cliNome(D(v).cliente_id)}`,s:1}})]
+    .sort((a,b)=>String(b.r.data).localeCompare(a.r.data));
+  const gastou=sum(ent.filter(e=>e.s<0),e=>D(e.r).valor_brl),recebeu=sum(ent.filter(e=>e.s>0),e=>D(e.r).valor_brl),liq=recebeu-gastou;
+  const porMoeda=m=>{const g=sum(ent.filter(e=>e.s<0&&D(e.r).moeda===m),e=>D(e.r).valor),rr=sum(ent.filter(e=>e.s>0&&D(e.r).moeda===m),e=>D(e.r).valor);return g||rr?`<dt>${SYM[m]} gastou / recebeu</dt><dd>${fmt(g,m)} / ${fmt(rr,m)}</dd>`:""};
+  return `${backTo("home")}<div class="lbl">Sócio</div><h2>👤 ${esc(n)}</h2>
+  <div class="pills" style="margin-bottom:12px">${SOCIOS.map(x=>`<button class="pill ${x===n?"on":""}" onclick="go('socio','${x}')">${x}</button>`).join("")}</div>
+  <div class="card"><dl class="kv"><dt>Gastou pela empresa</dt><dd>${fmt(gastou)}</dd><dt>Recebeu de clientes (está com ${esc(n)})</dt><dd>${fmt(recebeu)}</dd>
+   ${MOEDAS.map(porMoeda).join("")}
+   <dt class="tt">${liq<-0.01?"Empresa deve reembolsar a "+esc(n):liq>0.01?esc(n)+" está com dinheiro da empresa":"Zerado"}</dt><dd class="tt ${liq<-0.01?"warn":liq>0.01?"ok":""}">${fmt(Math.abs(liq))}</dd></dl></div>
+  <div class="sec"><b>Lançamentos</b><i></i><small>${ent.length}</small></div>
+  <div class="list">${ent.map(e=>`<button class="card item" onclick='abrir(byId("${e.r.id}"))'><div class="l1"><b>${esc(e.t)}</b><b class="${e.s>0?"ok":""}">${e.s>0?"+":"−"} ${fmt(D(e.r).valor,D(e.r).moeda)}</b></div><div class="l2"><span>${dCurta(e.r.data)} · ${esc(e.d)}</span><span>${fmt(D(e.r).valor_brl)}</span></div></button>`).join("")||'<div class="empty">Nenhum lançamento de '+esc(n)+'.</div>'}</div>`;
 }
 const TIPOS={compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
 function resumo(r){const d=D(r);switch(r.tipo){
