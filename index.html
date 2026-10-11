@@ -254,7 +254,7 @@ function render(){
   const m=$("#main");
   if(!S.user){m.innerHTML=viewLogin();return}
   const [v,sub]=S.view.split(":");
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
   m.innerHTML=(V[v]||viewHome)();
 }
@@ -310,7 +310,7 @@ function viewHome(){
     <button class="chip" onclick="go('socio','Johnny')">👤 Johnny</button>
     <button class="chip" onclick="go('historico')">Histórico</button>
   </div>
-  <div class="foot"><span>Conectado como <b>${esc(S.me)}</b> · ${esc(S.user?.email)}</span><button class="chip" onclick="sair()">Sair</button></div>`;
+  <div class="foot"><span>Conectado como <b>${esc(S.me)}</b> · ${esc(S.user?.email)}</span><span><button class="chip" onclick="go('senha')">🔑 Trocar senha</button> <button class="chip" onclick="sair()">Sair</button></span></div>`;
 }
 
 /* ===== Form helpers ===== */
@@ -681,6 +681,15 @@ function viewSocio(){
   <div class="sec"><b>Lançamentos</b><i></i><small>${ent.length}</small></div>
   <div class="list">${ent.map(e=>`<button class="card item" onclick='abrir(byId("${e.r.id}"))'><div class="l1"><b>${esc(e.t)}</b><b class="${e.s>0?"ok":""}">${e.s>0?"+":"−"} ${fmt(D(e.r).valor,D(e.r).moeda)}</b></div><div class="l2"><span>${dCurta(e.r.data)} · ${esc(e.d)}</span><span>${fmt(D(e.r).valor_brl)}</span></div></button>`).join("")||'<div class="empty">Nenhum lançamento de '+esc(n)+'.</div>'}</div>`;
 }
+function viewSenha(){return `${backTo("home")}<div class="lbl">Minha conta</div><h2>🔑 Trocar senha</h2>
+  <div class="hint" style="margin:-6px 0 8px">Conta: <b>${esc(S.user?.email)}</b></div>
+  <div class="f"><label>Nova senha (mínimo 6 caracteres)</label><input type="password" id="np1" autocomplete="new-password"></div>
+  <div class="f"><label>Repita a nova senha</label><input type="password" id="np2" autocomplete="new-password"></div>
+  <div class="err" id="ferr"></div><div class="actions"><button class="btn" id="fsave" onclick="trocarSenha()">Salvar nova senha</button><button class="btn ghost" onclick="go('home')">Fechar</button></div>`}
+async function trocarSenha(){const a=$("#np1").value,b=$("#np2").value;
+  if(a.length<6)return ferr("A senha precisa ter pelo menos 6 caracteres.");if(a!==b)return ferr("As duas senhas não são iguais.");
+  $("#fsave").disabled=true;const {error}=await sb.auth.updateUser({password:a});
+  if(error)return ferr("Não deu certo: "+error.message);toast("Senha alterada ✓");go("home")}
 const TIPOS={compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
 function resumo(r){const d=D(r);switch(r.tipo){
   case"compra":return `${d.numero} · ${d.doc||d.fornecedor} · ${fmt(d.total,"EUR")}`;
