@@ -111,6 +111,9 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 .anxo{background:none;border:none;color:var(--tx);font-family:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0;font-size:13.5px;font-weight:600}
 .anxo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.anxo small{font-weight:400;font-size:11.5px;color:var(--mut)}
 .ntxt{white-space:pre-wrap;font-size:12.5px;color:var(--mut);margin-top:6px;font-family:ui-monospace,Menlo,monospace;line-height:1.5;overflow-wrap:anywhere}
+#drop{position:fixed;inset:10px;z-index:20;border:3px dashed var(--red);border-radius:24px;background:rgba(10,13,18,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:grid;place-items:center;pointer-events:none}
+#drop>div{text-align:center}#drop span{display:block;font-size:54px}#drop b{display:block;font-size:24px;margin-top:8px}#drop small{display:block;color:var(--mut);margin-top:6px;font-size:14px}
+#drop.no{border-color:#5d636e}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1e2533;border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-size:13.5px;z-index:9;max-width:90vw}
 @media (min-width:640px){.strip b{font-size:17px}.bigbtn{min-height:150px}}
 /* ===== v5 dashboard ===== */
@@ -240,6 +243,7 @@ aside{display:none}
 </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="drop" hidden><div><span>📎</span><b id="dropt">Solte aqui para anexar</b><small id="drops"></small></div></div>
 
 <script>
 /* ===== Config ===== */
@@ -1081,6 +1085,27 @@ function viewArquivos(){
   return `${backTo("home")}<h2>📎 Arquivos</h2><div class="hint" style="margin:-6px 0 12px">Tudo o que foi anexado aos lançamentos. Para anexar, abra a venda, compra, pagamento, recebimento ou custo.</div>
   <div class="list">${all.map(({r,x})=>`<div class="card item"><div class="l1"><button class="anxo" style="padding:0" onclick="abrirAnexo('${esc(x.path)}')"><span>${ficon(x.nome)} ${esc(x.nome)}</span></button><button class="chip" style="min-height:34px;padding:6px 12px" onclick='abrir(byId("${r.id}"))'>ver lançamento</button></div><div class="l2"><span>${TIPOS[r.tipo]} · ${esc(resumo(r))}</span><span>${fsize(x.tamanho)} · ${dCurta(x.em)}</span></div></div>`).join("")||'<div class="empty">Nenhum arquivo ainda.</div>'}</div>`;
 }
+
+/* ===== Arrastar e soltar arquivos ===== */
+function dropAlvo(){
+  if(!S.user)return null;
+  const v=S.view;
+  if((v==="venda"||v==="compra")&&byId(S.param))return{modo:"det",id:S.param,txt:`Solte para anexar à ${v==="venda"?"venda":"compra"} ${D(byId(S.param)).numero||""}`};
+  if(v.startsWith("form:")&&$("#fqueue")&&F){const r=F.id?byId(F.id):null;return{modo:r?"det":"fila",id:r?.id,txt:r?"Solte para anexar a este lançamento":"Solte para anexar (sobe ao salvar)"}}
+  return{modo:"nada",txt:"Aqui não dá para anexar",sub:"Abra uma venda, compra, pagamento, recebimento, custo, cliente ou anotação"};
+}
+let dragN=0;
+const temArquivo=e=>[...(e.dataTransfer?.types||[])].includes("Files");
+document.addEventListener("dragenter",e=>{if(!temArquivo(e))return;e.preventDefault();dragN++;const a=dropAlvo();if(!a)return;const d=$("#drop");$("#dropt").textContent=a.txt;$("#drops").textContent=a.sub||"PDF, foto, invoice, recibo… pode soltar vários";d.classList.toggle("no",a.modo==="nada");d.hidden=false});
+document.addEventListener("dragover",e=>{if(temArquivo(e))e.preventDefault()});
+document.addEventListener("dragleave",e=>{if(!temArquivo(e))return;dragN=Math.max(0,dragN-1);if(!dragN)$("#drop").hidden=true});
+document.addEventListener("drop",async e=>{if(!temArquivo(e))return;e.preventDefault();dragN=0;$("#drop").hidden=true;
+  const fs=[...e.dataTransfer.files];const a=dropAlvo();if(!fs.length||!a)return;
+  if(a.modo==="nada")return toast("Abra um lançamento para anexar o arquivo");
+  if(a.modo==="fila"){F.files=[...(F.files||[]),...fs];$("#fqueue").innerHTML=F.files.map(f=>`${ficon(f.name)} ${esc(f.name)} · ${fsize(f.size)} <span class="dim">(vai junto ao salvar)</span>`).join("<br>");return toast(fs.length+" arquivo(s) na fila ✓")}
+  toast("Enviando "+fs.length+" arquivo(s)…");
+  try{await uploadAnexos(a.id,fs);toast("Anexado ✓");if(S.view.startsWith("form:")){const el=$("#fanx");if(el)el.innerHTML=anexosList(byId(a.id))}else render()}catch(err){toast("Erro: "+err.message)}
+});
 
 /* ===== Start ===== */
 $("#brand").onclick=()=>go("home");
