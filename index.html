@@ -115,6 +115,31 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 #drop>div{text-align:center}#drop span{display:block;font-size:54px}#drop b{display:block;font-size:24px;margin-top:8px}#drop small{display:block;color:var(--mut);margin-top:6px;font-size:14px}
 #drop.no{border-color:#5d636e}
 .rv{display:flex;gap:8px;margin-top:10px;align-items:center}.rv select{flex:1;min-width:0}.rv .btn{min-height:46px;padding:10px 18px}
+#printArea{display:none}
+@media print{
+  @page{size:A4 portrait;margin:12mm 10mm}
+  html,body{background:#fff!important;color:#111!important;font-size:10px}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block!important;width:190mm;font-family:Poppins,Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #printArea .ph1{display:flex;align-items:center;gap:10px;background:#0a0d12;color:#fff;border-radius:8px;padding:8px 12px;margin-bottom:8px}
+  #printArea .ph1 img{width:38px;height:38px}
+  #printArea .ph1 b{display:block;font-size:15px}#printArea .ph1 span{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#d8232a}
+  #printArea .pd{margin-left:auto;text-align:right;font-size:9px;color:#ccc}
+  #printArea .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px}
+  #printArea .pk{border:1px solid #ddd;border-radius:6px;padding:5px 7px}
+  #printArea .pk span{display:block;font-size:7.5px;letter-spacing:.12em;text-transform:uppercase;color:#d8232a;font-weight:700}
+  #printArea .pk b{display:block;font-size:12.5px;margin-top:1px}#printArea .pk small{font-size:7.5px;color:#666}
+  #printArea .neg{color:#c0161d}
+  #printArea h4{font-size:9px;letter-spacing:.16em;text-transform:uppercase;margin:8px 0 3px;border-bottom:1.5px solid #d8232a;padding-bottom:2px}
+  #printArea .pt{width:100%;border-collapse:collapse;font-size:8.5px}
+  #printArea .pt th{text-align:left;font-weight:600;color:#555;border-bottom:1px solid #ccc;padding:2px 3px}
+  #printArea .pt td{border-bottom:1px solid #eee;padding:2.5px 3px;vertical-align:top}
+  #printArea .pt .r{text-align:right;white-space:nowrap}
+  #printArea .pt .tt td{font-weight:700;border-top:1px solid #999}
+  #printArea .p2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  #printArea .pf{margin-top:8px;font-size:7.5px;color:#777;border-top:1px solid #ddd;padding-top:4px}
+  #printArea,#printArea *{break-inside:avoid}
+}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1e2533;border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-size:13.5px;z-index:9;max-width:90vw}
 @media (min-width:640px){.strip b{font-size:17px}.bigbtn{min-height:150px}}
 /* ===== v5 dashboard ===== */
@@ -246,6 +271,7 @@ aside{display:none}
 </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div id="printArea"></div>
 <div id="drop" hidden><div><span>📎</span><b id="dropt">Solte aqui para anexar</b><small id="drops"></small></div></div>
 
 <script>
@@ -935,7 +961,7 @@ function viewPainel(){
   const t=totais();
   const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou}});
   const devedores=act("cliente").map(c=>{const vs=act("venda").filter(v=>D(v).cliente_id===c.id);return{c,deve:sum(vs,v=>Math.max(0,vendaSaldo(v))*(D(v).cot?.[D(v).moeda]||0))}}).filter(x=>x.deve>0.01);
-  return `${backTo("home")}<h2>📊 Painel</h2><div class="hint" style="margin:-6px 0 12px">Tudo em reais. Valores ainda em aberto usam o câmbio da data do lançamento.</div>
+  return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>📊 Painel</h2><button class="btn" style="min-height:42px;padding:9px 18px;font-size:14px" onclick="imprimirRelatorio()">🖨️ Imprimir relatório</button></div><div class="hint" style="margin:-6px 0 12px">Tudo em reais. Valores ainda em aberto usam o câmbio da data do lançamento.</div>
   <div class="nums">
    <div class="card hl"><div class="lbl">Lucro previsto</div><b class="${t.lucro>=0?"":"redt"}">${fmt(t.lucro)}</b><div class="small mut">${fmtN(t.pct*100,1)}% sobre vendas</div></div>
    <div class="card"><div class="lbl">Lucro em caixa</div><b>${fmt(t.caixa)}</b><div class="small mut">recebido − pago − custos</div></div>
@@ -1253,6 +1279,50 @@ function viewEstoque(){
    <div class="l2"><span>comprado ${fmtN(e.comp,0)} · vendido ${fmtN(e.vend,0)}${e.res?` (${fmtN(e.res,0)} a entregar)`:""}${e.aj?` · ajuste ${e.aj>0?"+":""}${fmtN(e.aj,0)}`:""}${e.ativo?` · <b style="color:var(--tx)">ativo ${fmtN(e.ativo,0)}</b>`:""}</span><span>${e.disp>0?"disponível":e.disp<0?"falta comprar "+fmtN(-e.disp,0):"zerado"} · c.m. ${fmt(e.cm,"EUR")}</span></div></div>`).join("")||'<div class="empty">Nada comprado ou vendido ainda.</div>'}</div>
   ${act("ajuste").length?`<div class="sec"><b>Ajustes</b><i></i></div><div class="list">${act("ajuste").map(a=>`<button class="card item" onclick="go('form:ajuste','${a.id}')"><div class="l1"><b>${esc(pCod(byId(D(a).produto_id)))} · ${esc(D(byId(D(a).produto_id)).nome||"")}</b><b>${D(a).qtd>0?"+":""}${fmtN(D(a).qtd,0)}</b></div><div class="l2"><span>${dCurta(a.data)} · ${esc(D(a).motivo)}</span><span>${esc(D(a).obs||"")}</span></div></button>`).join("")}</div>`:""}
   <div class="hint" style="margin-top:12px">Disponível = comprado + ajustes − vendido. Ativo (ex.: unidade demo do JP) e consumo não entram no disponível. O kit conta como 1 unidade.</div>`;
+}
+
+/* ===== Relatório para impressão (1 página A4) ===== */
+function relatorioHtml(){
+  const t=totais(),agora=new Date();
+  const vs=act("venda").slice().sort((a,b)=>String(a.data).localeCompare(b.data));
+  const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou}});
+  const kpi=(l,v,s="",c="")=>`<div class="pk"><span>${l}</span><b class="${c}">${v}</b>${s?`<small>${s}</small>`:""}</div>`;
+  const cats=["Frete","Imposto","Viagem","Curso CCR","Anuidade","Outro"].map(k=>[k,sum(act("custo").filter(c=>D(c).cat===k),c=>D(c).valor_brl)]).filter(x=>x[1]);
+  return `<div class="ph1"><img src="logo.png" alt=""><div><b>MT-S7 · Relatório</b><span>Mergulho Técnico · S7 CCR Brasil</span></div><div class="pd">${agora.toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})} · ${agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}<br>emitido por ${esc(S.me)}</div></div>
+  <div class="pgrid">
+   ${kpi("Lucro previsto",fmt(t.lucro),fmtN(t.pct*100,1)+"% sobre vendas",t.lucro<0?"neg":"")}
+   ${kpi("Lucro em caixa",fmt(t.caixa),"recebido − pago − custos",t.caixa<0?"neg":"")}
+   ${kpi("Vendas",fmt(t.vendasBRL),(act("venda").length-t.nRes)+" venda(s), sem reservas")}
+   ${kpi("Compras",fmt(t.comprasBRL),act("compra").length+" compra(s)")}
+   ${kpi("A receber",fmt(t.aReceber))}
+   ${kpi("A pagar Smartdive",fmt(t.aPagarEur,"EUR"))}
+   ${kpi("Custos",fmt(t.custosBRL))}
+   ${kpi("Recebido",fmt(t.recebido))}
+  </div>
+  <h4>Vendas</h4>
+  <table class="pt"><thead><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Etapa</th><th class="r">Total</th><th class="r">Recebido</th><th class="r">Saldo</th><th class="r">Lucro R$</th><th class="r">%</th></tr></thead><tbody>
+   ${vs.map(v=>{const d=D(v),l=vendaLucro(v),s=vendaSaldo(v),j=jornada(v);return `<tr><td>${esc(d.numero)}</td><td>${dCurta(v.data)}</td><td>${esc(D(byId(d.cliente_id)).nome||"")}</td><td>${esc(j.status[0])}</td><td class="r">${(d.itens||[]).length?fmt(vendaTotal(v),d.moeda):"—"}</td><td class="r">${fmt(vendaRecebido(v),d.moeda)}</td><td class="r">${s>0.01?fmt(s,d.moeda):s<-0.01?"crédito "+fmt(-s,d.moeda):"—"}</td><td class="r">${isRes(v)?"—":fmt(l.lucro)}</td><td class="r">${isRes(v)?"":fmtN(l.pct*100,1)}</td></tr>`}).join("")||'<tr><td colspan="9">Nenhuma venda.</td></tr>'}
+  </tbody></table>
+  <div class="p2">
+   <div><h4>Compras Smartdive</h4><table class="pt"><thead><tr><th>Nº</th><th>Documento</th><th class="r">Total €</th><th class="r">Falta €</th></tr></thead><tbody>
+    ${act("compra").map(c=>`<tr><td>${esc(D(c).numero)}</td><td>${esc(D(c).doc||D(c).fornecedor||"")}</td><td class="r">${fmt(compraTotal(c),"EUR")}</td><td class="r">${compraSaldo(c)>0.01?fmt(compraSaldo(c),"EUR"):"paga"}</td></tr>`).join("")||'<tr><td colspan="4">—</td></tr>'}
+   </tbody></table>
+   ${cats.length?`<h4>Custos por tipo</h4><table class="pt"><tbody>${cats.map(([k,v])=>`<tr><td>${k}</td><td class="r">${fmt(v)}</td></tr>`).join("")}<tr class="tt"><td>Total</td><td class="r">${fmt(t.custosBRL)}</td></tr></tbody></table>`:""}</div>
+   <div><h4>Sócios · conta com a empresa</h4><table class="pt"><thead><tr><th></th><th class="r">Gastou</th><th class="r">Recebeu</th><th class="r">Situação</th></tr></thead><tbody>
+    ${soc.map(x=>`<tr><td>${x.n}</td><td class="r">${fmt(x.colocou)}</td><td class="r">${fmt(x.recebeu)}</td><td class="r">${x.liq<-0.01?"reembolsar "+fmt(-x.liq):x.liq>0.01?"está com "+fmt(x.liq):"zerado"}</td></tr>`).join("")}
+    <tr class="tt"><td colspan="3">Lucro previsto por sócio (50%)</td><td class="r">${fmt(t.lucro/2)}</td></tr></tbody></table>
+   <h4>Caixa</h4><table class="pt"><tbody><tr><td>Caixa da empresa</td><td class="r">${fmt(t.caixa)}</td></tr><tr><td>Adiantamentos (reservas)</td><td class="r">${fmt(t.adiant)}</td></tr></tbody></table></div>
+  </div>
+  <div class="pf">Valores em reais (R$). Lançamentos em aberto usam o câmbio da data do lançamento (BCE). Gerado pelo MT-S7.</div>`;
+}
+function imprimirRelatorio(){
+  const a=$("#printArea");a.innerHTML=relatorioHtml();
+  a.style.cssText="display:block;position:absolute;left:-10000px;top:0;width:190mm;font-size:10px";
+  const alvo=270*96/25.4; // altura útil A4 (mm → px)
+  const h=a.scrollHeight;a.style.cssText="";if(h>alvo)a.style.zoom=String(Math.max(.45,alvo/h));
+  const img=a.querySelector("img");
+  const go2=()=>window.print();
+  if(img&&!img.complete)img.onload=img.onerror=go2;else setTimeout(go2,50);
 }
 
 /* ===== Start ===== */
