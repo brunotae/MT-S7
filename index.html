@@ -60,6 +60,9 @@ h2{font-size:20px;font-weight:700;margin:4px 0 12px}
 input,select,textarea{width:100%;background:var(--s1);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:12px;font-family:inherit;font-size:16px;min-height:46px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
 textarea{min-height:70px;resize:vertical}
+input[type=date]{color-scheme:dark;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:left}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85;cursor:pointer}
+.banner{border-color:#6b1a1e;background:linear-gradient(160deg,#2a1115,#151a24);margin-bottom:14px}
 .hint{font-size:12px;color:var(--mut);margin-top:6px}
 .pills{display:flex;flex-wrap:wrap;gap:8px}
 .pill{border:1px solid var(--line);background:var(--s1);color:var(--tx);border-radius:999px;padding:10px 16px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;min-height:44px}
@@ -84,7 +87,7 @@ textarea{min-height:70px;resize:vertical}
 .btn:disabled{opacity:.5}
 .err{color:#ff7a7f;font-size:13px;margin-top:10px}
 /* lists */
-.list .item{display:block;width:100%;text-align:left;font-family:inherit;color:var(--tx);cursor:pointer;margin-bottom:8px}
+.item{display:block;width:100%;text-align:left;font-family:inherit;color:var(--tx);cursor:pointer;margin-bottom:8px}
 .item .l1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .item .l1 b{font-weight:600;font-size:14.5px}
 .item .l2{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--mut);margin-top:4px}
@@ -111,7 +114,7 @@ textarea{min-height:70px;resize:vertical}
       <div class="eyebrow">Mergulho Técnico · S7 Brasil</div>
       <div class="brand" id="brand">MT-<span>S7</span></div>
     </div>
-    <img src="logo.png" alt="Mergulho Técnico">
+    <img src="logo.png" alt="Mergulho Técnico" onclick="go('home')" style="cursor:pointer">
   </header>
   <main id="main"></main>
 </div>
@@ -166,7 +169,7 @@ const dLonga=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR",{weekday:"long
 function toast(t){const e=$("#toast");e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2400)}
 
 /* ===== State ===== */
-let S={user:null,rows:[],view:"home",param:null,hist:"todos"};
+let S={user:null,me:"Tae",rows:[],view:"home",param:null,hist:"todos"};
 let F=null; // form state
 const act=t=>S.rows.filter(r=>r.tipo===t&&r.status!=="cancelado");
 const byId=id=>S.rows.find(r=>r.id===id);
@@ -205,6 +208,7 @@ const recsDe=v=>act("recebimento").filter(x=>D(x).venda_id===v.id);
 const vendaRecebido=v=>sum(recsDe(v),x=>D(x).valor_venda);
 const vendaSaldo=v=>r2(vendaTotal(v)-vendaRecebido(v));
 const vendaBRL=v=>sum(recsDe(v),x=>D(x).valor_brl)+Math.max(0,vendaSaldo(v))*(D(v).cot?.[D(v).moeda]||0);
+const isRes=v=>D(v).etapa==="Reserva";
 const comprasDe=v=>act("compra").filter(c=>D(c).venda_id===v.id);
 const custosDe=v=>act("custo").filter(c=>D(c).venda_id===v.id);
 function vendaCusto(v){
@@ -217,6 +221,7 @@ function vendaCusto(v){
 function vendaLucro(v){const rec=vendaBRL(v),c=vendaCusto(v),ct=sum(custosDe(v),x=>D(x).valor_brl);const l=rec-c.v-ct;return{rec,custo:c.v,est:c.est,custos:ct,lucro:l,pct:rec?l/rec:0}}
 const cliNome=id=>{const c=byId(id);return c?`${D(c).numero} · ${D(c).nome}`:"—"};
 const prodNome=id=>D(byId(id)).nome||"(produto)";
+const itNome=it=>it.produto_id?prodNome(it.produto_id):(it.nome||"(produto)");
 function nextNum(tipo,pref){const n=Math.max(0,...S.rows.filter(r=>r.tipo===tipo).map(r=>parseInt(String(D(r).numero||"").replace(/\D/g,""))||0))+1;return pref+String(n).padStart(3,"0")}
 
 /* ===== Dados ===== */
@@ -263,22 +268,25 @@ function viewLogin(){return `<div class="login card">
   <div class="hint">Use o mesmo e-mail e senha da Agenda.</div><div class="err" id="lerr"></div></div>`}
 async function doLogin(){const {data,error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}await afterAuth(data.session)}
 async function doSignup(){const {data,error}=await sb.auth.signUp({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}if(data.session)await afterAuth(data.session);else $("#lerr").textContent="Conta criada. Agora toque em Entrar."}
-async function afterAuth(session){S.user=session?.user||null;if(S.user){await load();await seedProdutos()}go("home")}
+async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos()}go("home")}
 async function sair(){await sb.auth.signOut();S.user=null;S.rows=[];render()}
 
 /* ===== Home ===== */
 function totais(){
-  const vendas=act("venda"),compras=act("compra"),custos=act("custo");
+  const todas=act("venda"),vendas=todas.filter(v=>!isRes(v)),compras=act("compra"),custos=act("custo");
+  const adiant=sum(todas.filter(isRes),v=>sum(recsDe(v),x=>D(x).valor_brl));
   const aReceber=sum(vendas,v=>Math.max(0,vendaSaldo(v))*(D(v).cot?.[D(v).moeda]||0));
   const aPagarEur=sum(compras,c=>Math.max(0,compraSaldo(c)));
   const vendasBRL=sum(vendas,vendaBRL),comprasBRL=sum(compras,compraBRL),custosBRL=sum(custos,c=>D(c).valor_brl);
   const recebido=sum(act("recebimento"),x=>D(x).valor_brl),pago=sum(act("pagamento"),x=>D(x).valor_brl);
   const lucro=vendasBRL-comprasBRL-custosBRL;
-  return{aReceber,aPagarEur,vendasBRL,comprasBRL,custosBRL,recebido,pago,lucro,caixa:recebido-pago-custosBRL,pct:vendasBRL?lucro/vendasBRL:0};
+  return{aReceber,aPagarEur,vendasBRL,comprasBRL,custosBRL,recebido,pago,lucro,adiant,nRes:todas.length-vendas.length,caixa:recebido-pago-custosBRL,pct:vendasBRL?lucro/vendasBRL:0};
 }
 function viewHome(){
   const t=totais();
-  return `<div class="strip">
+  const imp=!S.rows.some(r=>r.tipo==="import"&&D(r).key===IMPORT_KEY);
+  return `${imp?`<div class="card banner"><div class="lbl">Dados iniciais</div><div style="margin:4px 0 10px;font-size:13.5px">Importar o quadro do JP: gastos de 10/08, adiantamentos de 5 clientes, venda do Erme e a compra FP 2026A/20.</div><button class="btn" id="bimp" onclick="importarJP()">Importar agora</button> <button class="chip" onclick="pularImport()">Não, obrigado</button></div>`:""}
+  <div class="strip">
     <div class="card"><div class="lbl">A receber</div><b>${fmt(t.aReceber)}</b></div>
     <div class="card"><div class="lbl">A pagar S7</div><b>${fmt(t.aPagarEur,"EUR")}</b></div>
     <div class="card"><div class="lbl">Lucro</div><b class="${t.lucro>=0?"":"redt"}">${fmt(t.lucro)}</b></div>
@@ -305,7 +313,7 @@ function viewHome(){
 /* ===== Form helpers ===== */
 const pills=(name,opts,val)=>`<div class="pills" data-name="${name}">${opts.map(o=>`<button type="button" class="pill ${o===val?"on":""}" onclick="pick('${name}','${esc(o)}')">${esc(o)}</button>`).join("")}</div>`;
 function pick(name,val){F[name]=val;document.querySelectorAll(`.pills[data-name="${name}"] .pill`).forEach(b=>b.classList.toggle("on",b.textContent===val));F.onPick&&F.onPick(name)}
-const dateField=(lbl="Data")=>`<div class="f"><label>${lbl}</label><input type="date" id="fdata" value="${F.data}" onchange="onDate(this.value)"><div class="hint" id="fdatal">→ ${dLonga(F.data)}</div></div>`;
+const dateField=(lbl="Data")=>`<div class="f"><label>${lbl}</label><input type="date" id="fdata" value="${F.data}" onchange="onDate(this.value)" onclick="try{this.showPicker()}catch(e){}"><div class="hint" id="fdatal">→ ${dLonga(F.data)}</div></div>`;
 async function onDate(v){F.data=v||today();$("#fdatal").textContent="→ "+dLonga(F.data);if(F.usesCot){F.cot=null;updCot();const c=await fetchCot(F.data);if(c&&!(F.cot&&F.cot.manual)){F.cot={...c}}updCot()}}
 async function initCot(){if(!F.usesCot)return;if(!F.cot){updCot();const c=await fetchCot(F.data);if(c&&!F.cot)F.cot={...c};}updCot()}
 function updCot(){const e=$("#fcot");if(e)e.innerHTML=`<span id="fcott">${cotTxt(F.cot)}</span>`+`<br><button type="button" class="linkbtn" onclick="toggleManual()">ajustar taxa</button><div id="fman" ${F.showMan?"":"hidden"}><div class="row2" style="margin-top:6px"><div><label class="small mut">€ 1 = R$</label><input inputmode="decimal" id="mEUR" value="${F.cot?fmtN(F.cot.EUR,4):""}" oninput="manCot()"></div><div><label class="small mut">US$ 1 = R$</label><input inputmode="decimal" id="mUSD" value="${F.cot?fmtN(F.cot.USD,4):""}" oninput="manCot()"></div></div></div>`;F.onCot&&F.onCot()}
@@ -338,9 +346,10 @@ function itemsHtml(){
   const prods=act("produto");
   return F.itens.map((it,i)=>`<div class="it">
     <button class="rm" onclick="rmItem(${i})">remover</button>
-    <select onchange="setProd(${i},this.value)"><option value="">Escolha o produto…</option>
+    <select onchange="setProd(${i},this.value)"><option value="">Escolha o produto…</option><option value="__txt" ${it.livre?"selected":""}>✏️ Outro produto (digitar)</option>
       ${["Conjunto CCR","Peça"].map(g=>`<optgroup label="${g}">${prods.filter(p=>D(p).tipo===g).map(p=>`<option value="${p.id}" ${p.id===it.produto_id?"selected":""}>${esc(D(p).nome)}</option>`).join("")}</optgroup>`).join("")}
     </select>
+    ${it.livre?`<input placeholder="Nome do produto" style="margin-top:8px" value="${esc(it.nome||"")}" oninput="F.itens[${i}].nome=this.value">`:""}
     <div class="g ${isV?"v":""}">
       <div><label class="small mut">Qtd</label><input inputmode="decimal" value="${fmtIn(it.qtd)||""}" oninput="setIt(${i},'qtd',this.value)"></div>
       <div><label class="small mut">Preço unit. (${SYM[m]})</label><input inputmode="decimal" value="${fmtIn(it.preco)}" oninput="setIt(${i},'preco',this.value)"></div>
@@ -352,7 +361,7 @@ function itemSub(it,m){const p=byId(it.produto_id);let s=fmt(itemTot(it),m);if(F
 function refreshItems(){$("#fitems").innerHTML=itemsHtml();updTotal()}
 function addItem(){F.itens.push({produto_id:"",qtd:1,preco:0,desc:0,auto:true});refreshItems()}
 function rmItem(i){F.itens.splice(i,1);refreshItems()}
-function setProd(i,id){const it=F.itens[i];it.produto_id=id;it.auto=true;autoPrice(it);refreshItems()}
+function setProd(i,id){const it=F.itens[i];if(id==="__txt"){it.produto_id="";it.livre=true;it.auto=false}else{it.produto_id=id;it.livre=false;it.nome="";it.auto=true;autoPrice(it)}refreshItems()}
 function autoPrice(it){const p=byId(it.produto_id);if(!p)return;
   if(F.kind==="compra")it.preco=num(D(p).dealer);
   else{const eur=num(D(p).varejo);it.preco=F.moeda==="EUR"?eur:(cotOk(F.cot)?r2(conv(eur,"EUR",F.moeda,F.cot)):0)}}
@@ -366,7 +375,7 @@ function editRow(){const id=S.param&&typeof S.param==="string"?S.param:(S.param?
 /* Compra */
 FORMS.compra={
   html(){const r=editRow();const d=D(r);
-    F={kind:"compra",id:r?.id,data:r?.data||today(),fornecedor:d.fornecedor||"Smartdive",doc:d.doc||"",itens:(d.itens||[{produto_id:"",qtd:1,preco:0}]).map(x=>({...x})),frete:d.frete||0,iva:d.iva||0,venda_id:d.venda_id||"",obs:d.obs||"",cot:d.cot||null,usesCot:true,back:r?"compra":"home",backParam:r?.id};
+    F={kind:"compra",id:r?.id,data:r?.data||today(),fornecedor:d.fornecedor||"Smartdive",doc:d.doc||"",itens:(d.itens||[{produto_id:"",qtd:1,preco:0}]).map(x=>({...x,livre:!x.produto_id&&!!x.nome})),frete:d.frete||0,iva:d.iva||0,venda_id:d.venda_id||"",obs:d.obs||"",cot:d.cot||null,usesCot:true,back:r?"compra":"home",backParam:r?.id};
     F.updTotal=()=>{const t=compraTotal({dados:F});$("#ftot").textContent=fmt(t,"EUR");$("#ftotb").textContent=cotOk(F.cot)?"≈ "+fmt(t*F.cot.EUR):""};
     F.onCot=F.updTotal;
     const vendas=act("venda");
@@ -384,9 +393,9 @@ FORMS.compra={
     <div class="f"><label>Observação</label><textarea id="fobs">${esc(F.obs)}</textarea></div>
     ${formActions("compra",r?.id)}`},
   after(){F.updTotal();initCot()},
-  save(){const it=F.itens.filter(x=>x.produto_id);if(!it.length)return ferr("Adicione pelo menos um item.");
+  save(){const it=F.itens.filter(x=>x.produto_id||(x.nome||"").trim());if(!it.length)return ferr("Adicione pelo menos um item.");
     const r=editRow();
-    const dados={numero:D(r).numero||nextNum("compra","P"),fornecedor:$("#ffor").value.trim(),doc:$("#fdoc").value.trim(),itens:it.map(({produto_id,qtd,preco})=>({produto_id,qtd,preco})),frete:F.frete,iva:F.iva,venda_id:$("#fvenda").value,obs:$("#fobs").value.trim(),cot:F.cot,moeda:"EUR"};
+    const dados={numero:D(r).numero||nextNum("compra","P"),fornecedor:$("#ffor").value.trim(),doc:$("#fdoc").value.trim(),itens:it.map(({produto_id,nome,qtd,preco})=>({produto_id,nome:produto_id?"":(nome||"").trim(),qtd,preco})),frete:F.frete,iva:F.iva,venda_id:$("#fvenda").value,obs:$("#fobs").value.trim(),cot:F.cot,moeda:"EUR"};
     dados.total=r2(compraTotal({dados}));
     doSave("compra",F.data,dados,F.id,id=>go("compra",id));}
 };
@@ -395,7 +404,7 @@ FORMS.compra={
 FORMS.pagamento={
   html(){const r=editRow();const d=D(r);const pre=S.param?.compra_id;
     const compras=act("compra");
-    F={kind:"pag",id:r?.id,data:r?.data||today(),compra_id:d.compra_id||pre||(compras.find(c=>compraSaldo(c)>0.01)?.id)||"",moeda:d.moeda||"EUR",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||"Tae",forma:d.forma||"Wire",obs:d.obs||"",usesCot:true};
+    F={kind:"pag",id:r?.id,data:r?.data||today(),compra_id:d.compra_id||pre||(compras.find(c=>compraSaldo(c)>0.01)?.id)||"",moeda:d.moeda||"EUR",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||S.me,forma:d.forma||"Wire",obs:d.obs||"",usesCot:true};
     F.back=pre||d.compra_id?"compra":"home";F.backParam=pre||d.compra_id;
     F.onCot=()=>{const e=$("#fabat");if(!e)return;const c=byId($("#fcompra")?.value||F.compra_id);
       if(!cotOk(F.cot)||!F.valor){e.innerHTML="";return}
@@ -419,9 +428,10 @@ FORMS.pagamento={
 };
 
 /* Venda */
+const ETAPAS=["Reserva","Pedido","Entregue"];
 FORMS.venda={
   html(){const r=editRow();const d=D(r);
-    F={kind:"venda",id:r?.id,data:r?.data||today(),cliente_id:d.cliente_id||"",moeda:d.moeda||"USD",itens:(d.itens||[{produto_id:"",qtd:1,preco:0,desc:0,auto:true}]).map(x=>({...x,auto:false})),obs:d.obs||"",cot:d.cot||null,usesCot:true,back:r?"venda":"home",backParam:r?.id};
+    F={kind:"venda",id:r?.id,data:r?.data||today(),cliente_id:d.cliente_id||"",moeda:d.moeda||"USD",etapa:d.etapa||"Pedido",itens:(d.itens||[{produto_id:"",qtd:1,preco:0,desc:0,auto:true}]).map(x=>({...x,auto:false,livre:!x.produto_id&&!!x.nome})),obs:d.obs||"",cot:d.cot||null,usesCot:true,back:r?"venda":"home",backParam:r?.id};
     if(!r)F.itens[0].auto=true;
     F.updTotal=()=>{const t=itensTot(F.itens);$("#ftot").textContent=fmt(t,F.moeda);$("#ftotb").textContent=cotOk(F.cot)&&F.moeda!=="BRL"?"≈ "+fmt(conv(t,F.moeda,"BRL",F.cot)):""};
     F.onCot=()=>{F.itens.forEach(it=>{if(it.auto)autoPrice(it)});refreshItems()};
@@ -431,6 +441,7 @@ FORMS.venda={
     ${dateField()}
     <div class="f"><label>Cliente</label><select id="fcli" onchange="$('#fnovo').hidden=this.value!=='novo'"><option value="">Escolha…</option><option value="novo">➕ Novo cliente</option>${clis.map(c=>`<option value="${c.id}" ${c.id===F.cliente_id?"selected":""}>${esc(D(c).numero)} · ${esc(D(c).nome)}</option>`).join("")}</select>
       <input id="fnovo" placeholder="Nome do novo cliente" style="margin-top:8px" hidden></div>
+    <div class="f"><label>Etapa</label>${pills("etapa",ETAPAS,F.etapa)}<div class="hint">Reserva = cliente já confirmou/adiantou, configuração ainda em aberto. Pode ficar sem itens.</div></div>
     <div class="f"><label>Moeda da venda</label>${pills("moeda",MOEDAS,F.moeda)}</div>
     ${cotBox()}
     <div class="sec"><b>Itens</b><i></i><small>preço sugerido = tabela varejo</small></div>
@@ -439,34 +450,53 @@ FORMS.venda={
     <div class="f"><label>Observação</label><textarea id="fobs">${esc(F.obs)}</textarea></div>
     ${formActions("venda",r?.id)}`},
   after(){F.updTotal();initCot()},
-  async save(){let cid=$("#fcli").value;const it=F.itens.filter(x=>x.produto_id);
-    if(!cid)return ferr("Escolha o cliente.");if(!it.length)return ferr("Adicione pelo menos um item.");if(!cotOk(F.cot))return ferr("Sem cotação: toque em “ajustar taxa” e informe.");
+  async save(){let cid=$("#fcli").value;const it=F.itens.filter(x=>x.produto_id||(x.nome||"").trim());
+    if(!cid)return ferr("Escolha o cliente.");if(!it.length&&F.etapa!=="Reserva")return ferr("Adicione pelo menos um item (ou marque a etapa Reserva).");if(!cotOk(F.cot))return ferr("Sem cotação: toque em “ajustar taxa” e informe.");
     $("#fsave").disabled=true;
     if(cid==="novo"){const nome=$("#fnovo").value.trim();if(!nome)return ferr("Digite o nome do novo cliente.");
       try{cid=await saveRow("cliente",today(),{numero:nextNum("cliente","C"),nome});await load()}catch(e){return ferr(e.message)}}
     const r=editRow();
-    const dados={numero:D(r).numero||nextNum("venda","V"),cliente_id:cid,moeda:F.moeda,itens:it.map(({produto_id,qtd,preco,desc})=>({produto_id,qtd,preco,desc:desc||0})),obs:$("#fobs").value.trim(),cot:F.cot};
+    const dados={...D(r),numero:D(r).numero||nextNum("venda","V"),cliente_id:cid,moeda:F.moeda,etapa:F.etapa,itens:it.map(({produto_id,nome,qtd,preco,desc})=>({produto_id,nome:produto_id?"":(nome||"").trim(),qtd,preco,desc:desc||0})),obs:$("#fobs").value.trim(),cot:F.cot};
     dados.total=r2(itensTot(dados.itens));dados.total_brl=r2(conv(dados.total,F.moeda,"BRL",F.cot));
     doSave("venda",F.data,dados,F.id,id=>go("venda",id));}
+};
+
+/* Entrega */
+FORMS.entrega={
+  html(){const v=byId(S.param);const e=D(v).entrega||{};
+    F={kind:"entrega",data:e.data||today(),back:"venda",backParam:v.id};
+    return `${backTo("vendas")}<div class="lbl">Entrega · ${esc(D(v).numero)}</div><h2>📍 ${esc(cliNome(D(v).cliente_id))}</h2>
+    ${dateField("Data em que o cliente recebeu")}
+    <div class="f"><label>Onde recebeu?</label><input id="floc" value="${esc(e.local||"")}" placeholder="Ex.: Frankfurt, Alemanha · em mãos · loja SP"></div>
+    <div class="f"><label>Como foi entregue?</label>${pills("modo",["Em mãos","Envio/transportadora","Retirada","Outro"],F.modo=e.modo||"Em mãos")}</div>
+    <div class="f"><label>Observação (nº de série, conferência, etc.)</label><textarea id="fobs">${esc(e.obs||"")}</textarea></div>
+    <div class="err" id="ferr"></div><div class="actions"><button class="btn" id="fsave" onclick="FORMS.entrega.save()">Salvar entrega</button><button class="btn ghost" onclick="history_back()">Fechar</button>
+    ${e.data?`<button class="btn danger" onclick="FORMS.entrega.clear()">Desfazer entrega</button>`:""}</div>`},
+  save(){const v=byId(S.param);const dados={...D(v),etapa:"Entregue",entrega:{data:F.data,local:$("#floc").value.trim(),modo:F.modo,obs:$("#fobs").value.trim()}};doSave("venda",v.data,dados,v.id)},
+  clear(){const v=byId(S.param);const dados={...D(v),etapa:"Pedido"};delete dados.entrega;$("#fsave").disabled=true;saveRow("venda",v.data,dados,v.id).then(load).then(()=>{toast("Entrega desfeita");history_back()})}
 };
 
 /* Recebimento */
 FORMS.recebimento={
   html(){const r=editRow();const d=D(r);const pre=S.param?.venda_id;
     const vendas=act("venda");
-    F={kind:"rec",id:r?.id,data:r?.data||today(),venda_id:d.venda_id||pre||(vendas.find(v=>vendaSaldo(v)>0.01)?.id)||"",moeda:d.moeda||"",valor:d.valor||0,cot:d.cot||null,recebido_por:d.recebido_por||"Tae",forma:d.forma||"Zelle",obs:d.obs||"",usesCot:true};
+    F={kind:"rec",id:r?.id,data:r?.data||today(),venda_id:d.venda_id||pre||(vendas.find(v=>vendaSaldo(v)>0.01)?.id)||"",moeda:d.moeda||"",valor:d.valor||0,cot:d.cot||null,recebido_por:d.recebido_por||S.me,forma:d.forma||"Zelle",obs:d.obs||"",usesCot:true,abate:r?num(d.valor_venda):null,abateMan:!!d.abate_manual};
     F.back=pre||d.venda_id?"venda":"home";F.backParam=pre||d.venda_id;
     if(!F.moeda)F.moeda=D(byId(F.venda_id)).moeda||"USD";
     F.onCot=()=>{const e=$("#fabat");if(!e)return;const v=byId($("#fvend")?.value||F.venda_id);
-      if(!cotOk(F.cot)||!F.valor||!v){e.innerHTML="";return}
-      const mv=D(v).moeda,av=conv(F.valor,F.moeda,mv,F.cot),brl=conv(F.valor,F.moeda,"BRL",F.cot);
+      if(!cotOk(F.cot)||!F.valor||!v){e.innerHTML="";$("#fabw").hidden=true;return}
+      const mv=D(v).moeda,brl=conv(F.valor,F.moeda,"BRL",F.cot);
+      if(!F.abateMan){F.abate=r2(conv(F.valor,F.moeda,mv,F.cot));$("#fab").value=fmtIn(F.abate)}
+      $("#fabw").hidden=F.moeda===mv;$("#fabl").textContent=`Quanto abate na venda (${SYM[mv]})`;
+      const av=F.moeda===mv?F.valor:F.abate;
       const saldo=vendaSaldo(v)+(r&&D(r).venda_id===v.id?num(d.valor_venda):0);
       e.innerHTML=`Equivale a <b>${fmt(brl)}</b> · abate <b>${fmt(av,mv)}</b> da venda · saldo após: <b>${fmt(saldo-av,mv)}</b>`};
-    F.onPick=n=>{if(n==="moeda")F.onCot()};
+    F.onPick=n=>{if(n==="moeda"){F.abateMan=false;F.onCot()}};
     return `${backTo(F.back==="venda"?"vendas":"home")}<div class="lbl">${r?"Editar":"Novo"} recebimento</div><h2>💰 Recebimento</h2>
     ${dateField()}
-    <div class="f"><label>De qual venda?</label><select id="fvend" onchange="F.venda_id=this.value;F.onCot()">${vendas.length?"":'<option value="">Nenhuma venda lançada</option>'}${vendas.map(v=>`<option value="${v.id}" ${v.id===F.venda_id?"selected":""}>${esc(D(v).numero)} · ${esc(cliNome(D(v).cliente_id))} · saldo ${fmt(vendaSaldo(v),D(v).moeda)}</option>`).join("")}</select></div>
+    <div class="f"><label>De qual venda / reserva?</label><select id="fvend" onchange="F.venda_id=this.value;F.abateMan=false;F.onCot()">${vendas.length?"":'<option value="">Nenhuma venda lançada</option>'}${vendas.map(v=>`<option value="${v.id}" ${v.id===F.venda_id?"selected":""}>${esc(D(v).numero)} · ${esc(cliNome(D(v).cliente_id))} · ${D(v).etapa==="Reserva"?"reserva":"saldo "+fmt(vendaSaldo(v),D(v).moeda)}</option>`).join("")}</select></div>
     ${moneyFields()}
+    <div class="f" id="fabw" hidden><label id="fabl">Quanto abate na venda</label><input inputmode="decimal" id="fab" value="${fmtIn(F.abate)}" oninput="F.abate=num(this.value);F.abateMan=true;F.onCot()"><div class="hint">Calculado pelo câmbio do dia. Altere se vocês combinaram outra taxa com o cliente (ex.: € 1 = US$ 1,13).</div></div>
     <div class="cot" id="fabat" style="border-style:solid"></div>
     <div class="f"><label>Quem recebeu?</label>${pills("recebido_por",SOCIOS,F.recebido_por)}</div>
     <div class="f"><label>Forma</label>${pills("forma",["Zelle","Wire","Pix","Dinheiro","Outro"],F.forma)}</div>
@@ -475,14 +505,14 @@ FORMS.recebimento={
   after(){initCot()},
   save(){const vid=$("#fvend").value;if(!vid)return ferr("Escolha a venda.");if(!F.valor)return ferr("Informe o valor.");if(!cotOk(F.cot))return ferr("Sem cotação: toque em “ajustar taxa” e informe.");
     const mv=D(byId(vid)).moeda;
-    const dados={venda_id:vid,moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),valor_venda:r2(conv(F.valor,F.moeda,mv,F.cot)),recebido_por:F.recebido_por,forma:F.forma,obs:$("#fobs").value.trim()};
+    const vv=F.moeda===mv?F.valor:(F.abateMan?F.abate:r2(conv(F.valor,F.moeda,mv,F.cot)));
+    const dados={venda_id:vid,moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),valor_venda:vv,abate_manual:F.moeda!==mv&&F.abateMan,recebido_por:F.recebido_por,forma:F.forma,obs:$("#fobs").value.trim()};
     F.back="venda";F.backParam=vid;doSave("recebimento",F.data,dados,F.id);}
 };
-
 /* Custo */
 FORMS.custo={
   html(){const r=editRow();const d=D(r);const pre=S.param?.venda_id;
-    F={kind:"custo",id:r?.id,data:r?.data||today(),cat:d.cat||"Frete",moeda:d.moeda||"BRL",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||"Tae",venda_id:d.venda_id||pre||"",obs:d.obs||"",usesCot:true};
+    F={kind:"custo",id:r?.id,data:r?.data||today(),cat:d.cat||"Frete",moeda:d.moeda||"BRL",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||S.me,venda_id:d.venda_id||pre||"",obs:d.obs||"",usesCot:true};
     F.back=pre?"venda":(r?"custos":"home");F.backParam=pre;
     F.onCot=()=>{const e=$("#fabat");if(e)e.innerHTML=cotOk(F.cot)&&F.valor?`Equivale a <b>${fmt(conv(F.valor,F.moeda,"BRL",F.cot))}</b>`:""};
     F.onPick=n=>{if(n==="moeda")F.onCot()};
@@ -530,24 +560,29 @@ function pm(){const d=num($("#fdeal").value),v=num($("#fvar").value);$("#fpm").t
 
 /* ===== Listas ===== */
 const st=(s,t)=>`<span class="tag ${t}">${s}</span>`;
+function etapaTag(v){const e=D(v).etapa||"Pedido";return st(e==="Entregue"?"✓ entregue":e.toLowerCase(),e==="Entregue"?"ok":e==="Reserva"?"":"warn")}
 function viewVendas(){
   const vs=act("venda");
   return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>Vendas</h2><button class="chip" onclick="go('form:venda')">+ Venda</button></div>
   <div class="list">${vs.length?vs.map(v=>{const s=vendaSaldo(v),l=vendaLucro(v);return `<button class="card item" onclick="go('venda','${v.id}')">
-   <div class="l1"><b>${esc(D(v).numero)} · ${esc(cliNome(D(v).cliente_id))}</b><b>${fmt(vendaTotal(v),D(v).moeda)}</b></div>
-   <div class="l2"><span>${dCurta(v.data)} · ${s>0.01?st("falta "+fmt(s,D(v).moeda),"warn"):st("quitada","ok")}</span><span>lucro ${fmt(l.lucro)} · ${fmtN(l.pct*100,1)}%${l.est?"*":""}</span></div></button>`}).join(""):'<div class="empty">Nenhuma venda ainda.</div>'}</div>
-  ${vs.some(v=>vendaLucro(v).est)?'<div class="hint">* custo estimado pela tabela dealer (nenhuma compra ligada a essa venda).</div>':""}`;
+   <div class="l1"><b>${esc(D(v).numero)} · ${esc(cliNome(D(v).cliente_id))}</b><b>${isRes(v)&&!vendaTotal(v)?"reserva":fmt(vendaTotal(v),D(v).moeda)}</b></div>
+   <div class="l2"><span>${dCurta(v.data)} · ${etapaTag(v)} ${isRes(v)?st("adiantou "+fmt(vendaRecebido(v),D(v).moeda),"ok"):(s>0.01?st("falta "+fmt(s,D(v).moeda),"warn"):st("quitada","ok"))}</span><span>${isRes(v)?"":`lucro ${fmt(l.lucro)} · ${fmtN(l.pct*100,1)}%${l.est?"*":""}`}</span></div></button>`}).join(""):'<div class="empty">Nenhuma venda ainda.</div>'}</div>
+  ${vs.some(v=>!isRes(v)&&vendaLucro(v).est)?'<div class="hint">* custo estimado pela tabela dealer (nenhuma compra ligada a essa venda).</div>':""}`;
 }
 function viewVendaDet(){
   const v=byId(S.param);if(!v)return viewVendas();const d=D(v),l=vendaLucro(v),s=vendaSaldo(v);
-  return `${backTo("vendas")}<div class="lbl">Venda ${esc(d.numero)}${v.status==="cancelado"?" · cancelada":""}</div><h2>${esc(cliNome(d.cliente_id))}</h2>
-  <div class="card"><dl class="kv">${(d.itens||[]).map(it=>`<dt>${fmtN(it.qtd,0)}× ${esc(prodNome(it.produto_id))}${it.desc?` <span class="dim">(−${fmtN(it.desc,1)}%)</span>`:""}</dt><dd>${fmt(itemTot(it),d.moeda)}</dd>`).join("")}
+  const e=d.entrega;
+  return `${backTo("vendas")}<div class="lbl">Venda ${esc(d.numero)}${v.status==="cancelado"?" · cancelada":""}</div><h2>${esc(cliNome(d.cliente_id))} ${etapaTag(v)}</h2>
+  <div class="card"><dl class="kv">${(d.itens||[]).map(it=>`<dt>${fmtN(it.qtd,0)}× ${esc(itNome(it))}${it.desc?` <span class="dim">(−${fmtN(it.desc,1)}%)</span>`:""}</dt><dd>${fmt(itemTot(it),d.moeda)}</dd>`).join("")}
    <dt class="tt">Total</dt><dd class="tt">${fmt(vendaTotal(v),d.moeda)}</dd>
    <dt>Recebido</dt><dd class="ok">${fmt(vendaRecebido(v),d.moeda)}</dd><dt>Falta receber</dt><dd class="${s>0.01?"warn":""}">${fmt(s,d.moeda)}</dd></dl>
    <div class="hint">${dLonga(v.data)}${d.obs?" · "+esc(d.obs):""}</div></div>
+  <div class="sec"><b>Entrega</b><i></i></div>
+  ${e?`<button class="card item" onclick="go('form:entrega','${v.id}')"><div class="l1"><b>📍 ${esc(e.local||"local não informado")}</b><b class="ok">${dCurta(e.data)}</b></div><div class="l2"><span>${esc(e.modo||"")}${e.obs?" · "+esc(e.obs):""}</span><span>editar</span></div></button>`
+   :`<button class="card item" onclick="go('form:entrega','${v.id}')"><div class="l1"><b>Ainda não entregue</b><b class="redt">Registrar entrega →</b></div></button>`}
   <div class="sec"><b>Recebimentos</b><i></i><small>${recsDe(v).length}</small></div>
-  <div class="list">${recsDe(v).map(x=>`<button class="card item" onclick="go('form:recebimento','${x.id}')"><div class="l1"><b>${fmt(D(x).valor,D(x).moeda)}</b><b class="ok">${fmt(D(x).valor_brl)}</b></div><div class="l2"><span>${dCurta(x.data)} · ${esc(D(x).forma)} · ${esc(D(x).recebido_por)}</span><span>taxa ${D(x).moeda==="BRL"?"—":"R$ "+fmtN(D(x).cot?.[D(x).moeda],4)}</span></div></button>`).join("")||'<div class="empty">Nenhum recebimento.</div>'}</div>
-  <div class="sec"><b>Resultado em reais</b><i></i></div>
+  <div class="list">${recsDe(v).map(x=>`<button class="card item" onclick="go('form:recebimento','${x.id}')"><div class="l1"><b>${fmt(D(x).valor,D(x).moeda)}</b><b class="ok">${fmt(D(x).valor_brl)}</b></div><div class="l2"><span>${dCurta(x.data)} · ${esc(D(x).forma)} · ${esc(D(x).recebido_por)}</span><span>${D(x).moeda!==d.moeda?"abate "+fmt(D(x).valor_venda,d.moeda)+" · ":""}taxa ${D(x).moeda==="BRL"?"—":"R$ "+fmtN(D(x).cot?.[D(x).moeda],4)}</span></div></button>`).join("")||'<div class="empty">Nenhum recebimento.</div>'}</div>
+  ${isRes(v)?'<div class="hint" style="margin-top:12px">Reserva: o resultado aparece quando a venda tiver itens e passar para a etapa Pedido.</div>':`<div class="sec"><b>Resultado em reais</b><i></i></div>
   <div class="card"><dl class="kv"><dt>Venda (recebido + a receber)</dt><dd>${fmt(l.rec)}</dd>
    <dt>Custo da compra${l.est?" (estimado)":""}</dt><dd>− ${fmt(l.custo)}</dd>
    ${comprasDe(v).map(c=>`<dt class="dim small">· ${esc(D(c).numero)} ${esc(D(c).doc||"")}</dt><dd class="dim small">${fmt(compraBRL(c))}</dd>`).join("")}
@@ -555,7 +590,7 @@ function viewVendaDet(){
    ${custosDe(v).map(c=>`<dt class="dim small">· ${esc(D(c).cat)} ${esc(D(c).desc||"")}</dt><dd class="dim small">${fmt(D(c).valor_brl)}</dd>`).join("")}
    <dt class="tt">Lucro</dt><dd class="tt ${l.lucro>=0?"ok":"redt"}">${fmt(l.lucro)} · ${fmtN(l.pct*100,1)}%</dd>
    <dt>Tae (50%)</dt><dd>${fmt(l.lucro/2)}</dd><dt>Johnny (50%)</dt><dd>${fmt(l.lucro/2)}</dd></dl>
-   ${l.est?'<div class="hint">Nenhuma compra ligada a esta venda: custo estimado pela tabela dealer × câmbio do dia da venda.</div>':""}</div>
+   ${l.est?'<div class="hint">Nenhuma compra ligada a esta venda: custo estimado pela tabela dealer × câmbio do dia da venda.</div>':""}</div>`}
   <div class="actions"><button class="btn" onclick="go('form:recebimento',{venda_id:'${v.id}'})">+ Recebimento</button>
    <button class="btn ghost" onclick="go('form:custo',{venda_id:'${v.id}'})">+ Custo</button>
    <button class="btn ghost" onclick="go('form:venda','${v.id}')">Editar venda</button></div>`;
@@ -570,7 +605,7 @@ function viewCompras(){
 function viewCompraDet(){
   const c=byId(S.param);if(!c)return viewCompras();const d=D(c),s=compraSaldo(c);
   return `${backTo("compras")}<div class="lbl">Compra ${esc(d.numero)}${c.status==="cancelado"?" · cancelada":""}</div><h2>${esc(d.fornecedor)} ${esc(d.doc||"")}</h2>
-  <div class="card"><dl class="kv">${(d.itens||[]).map(it=>`<dt>${fmtN(it.qtd,0)}× ${esc(prodNome(it.produto_id))}</dt><dd>${fmt(itemTot(it),"EUR")}</dd>`).join("")}
+  <div class="card"><dl class="kv">${(d.itens||[]).map(it=>`<dt>${fmtN(it.qtd,0)}× ${esc(itNome(it))}</dt><dd>${fmt(itemTot(it),"EUR")}</dd>`).join("")}
    ${num(d.frete)?`<dt>Frete</dt><dd>${fmt(d.frete,"EUR")}</dd>`:""}${num(d.iva)?`<dt>IVA</dt><dd>${fmt(d.iva,"EUR")}</dd>`:""}
    <dt class="tt">Total</dt><dd class="tt">${fmt(compraTotal(c),"EUR")}</dd>
    <dt>Pago</dt><dd class="ok">${fmt(compraPago(c),"EUR")}</dd><dt>Falta pagar</dt><dd class="${s>0.01?"warn":""}">${fmt(s,"EUR")}</dd>
@@ -605,23 +640,25 @@ function viewEstoque(){
 function viewPainel(){
   const t=totais();
   const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou}});
-  const metade=(soc[0].liq+soc[1].liq)/2,dif=soc[0].liq-metade;
   const devedores=act("cliente").map(c=>{const vs=act("venda").filter(v=>D(v).cliente_id===c.id);return{c,deve:sum(vs,v=>Math.max(0,vendaSaldo(v))*(D(v).cot?.[D(v).moeda]||0))}}).filter(x=>x.deve>0.01);
   return `${backTo("home")}<h2>📊 Painel</h2><div class="hint" style="margin:-6px 0 12px">Tudo em reais. Valores ainda em aberto usam o câmbio da data do lançamento.</div>
   <div class="nums">
    <div class="card hl"><div class="lbl">Lucro previsto</div><b class="${t.lucro>=0?"":"redt"}">${fmt(t.lucro)}</b><div class="small mut">${fmtN(t.pct*100,1)}% sobre vendas</div></div>
    <div class="card"><div class="lbl">Lucro em caixa</div><b>${fmt(t.caixa)}</b><div class="small mut">recebido − pago − custos</div></div>
-   <div class="card"><div class="lbl">Vendas</div><b>${fmt(t.vendasBRL)}</b><div class="small mut">${act("venda").length} venda(s)</div></div>
+   <div class="card"><div class="lbl">Vendas</div><b>${fmt(t.vendasBRL)}</b><div class="small mut">${act("venda").length-t.nRes} venda(s) · sem reservas</div></div>
    <div class="card"><div class="lbl">Compras</div><b>${fmt(t.comprasBRL)}</b><div class="small mut">${act("compra").length} compra(s)</div></div>
    <div class="card"><div class="lbl">A receber</div><b class="warn">${fmt(t.aReceber)}</b></div>
    <div class="card"><div class="lbl">A pagar Smartdive</div><b class="warn">${fmt(t.aPagarEur,"EUR")}</b></div>
    <div class="card"><div class="lbl">Custos</div><b>${fmt(t.custosBRL)}</b></div>
    <div class="card"><div class="lbl">Recebido</div><b class="ok">${fmt(t.recebido)}</b></div>
+   <div class="card"><div class="lbl">Adiantamentos</div><b>${fmt(t.adiant)}</b><div class="small mut">${t.nRes} reserva(s)</div></div>
+   <div class="card"><div class="lbl">Caixa da empresa</div><b class="${t.caixa>=0?"ok":"redt"}">${fmt(t.caixa)}</b><div class="small mut">${t.caixa<0?"sócios bancando":"sobra"}</div></div>
   </div>
-  <div class="sec"><b>Sócios · 50/50</b><i></i></div>
-  <div class="card"><dl class="kv">${soc.map(s=>`<dt><b>${s.n}</b> · colocou</dt><dd>${fmt(s.colocou)}</dd><dt><b>${s.n}</b> · recebeu</dt><dd>${fmt(s.recebeu)}</dd>`).join("")}
-   <dt class="tt">Lucro de cada um (previsto)</dt><dd class="tt">${fmt(t.lucro/2)}</dd></dl>
-   <div class="hint">${Math.abs(dif)<0.01?"Acerto entre sócios: zerado ✓":`Acerto do caixa: <b>${dif>0?"Tae repassa":"Johnny repassa"} ${fmt(Math.abs(dif))}</b> ao ${dif>0?"Johnny":"Tae"}.`}</div></div>
+  <div class="sec"><b>Sócios · conta com a empresa</b><i></i></div>
+  ${soc.map(x=>`<div class="card" style="margin-bottom:8px"><dl class="kv"><dt><b>${x.n}</b> · gastou pela empresa</dt><dd>${fmt(x.colocou)}</dd><dt>recebeu de clientes (está com ele)</dt><dd>${fmt(x.recebeu)}</dd>
+   <dt class="tt">${x.liq<-0.01?"Empresa deve reembolsar":x.liq>0.01?"Está com dinheiro da empresa":"Zerado"}</dt><dd class="tt ${x.liq<-0.01?"warn":x.liq>0.01?"ok":""}">${fmt(Math.abs(x.liq))}</dd></dl></div>`).join("")}
+  <div class="card"><dl class="kv"><dt>Lucro previsto · Tae (50%)</dt><dd>${fmt(t.lucro/2)}</dd><dt>Lucro previsto · Johnny (50%)</dt><dd>${fmt(t.lucro/2)}</dd></dl>
+   <div class="hint">“Gastou” = pagamentos à Smartdive + custos pagos por ele. “Recebeu” = dinheiro de clientes que ficou com ele.</div></div>
   <div class="sec"><b>Quem deve</b><i></i></div>
   <div class="list">${devedores.map(x=>`<div class="card item"><div class="l1"><b>${esc(D(x.c).numero)} · ${esc(D(x.c).nome)}</b><b class="warn">${fmt(x.deve)}</b></div></div>`).join("")||'<div class="empty">Ninguém devendo.</div>'}</div>`;
 }
@@ -635,7 +672,7 @@ function resumo(r){const d=D(r);switch(r.tipo){
   case"cliente":return `${d.numero} · ${d.nome}`;case"produto":return d.nome}}
 function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
 function viewHistorico(){
-  let rs=S.rows.slice().sort((a,b)=>String(b.created_at).localeCompare(a.created_at));
+  let rs=S.rows.filter(r=>r.tipo!=="import").sort((a,b)=>String(b.created_at).localeCompare(a.created_at));
   if(S.hist==="cancelados")rs=rs.filter(r=>r.status==="cancelado");
   return `${backTo("home")}<h2>Histórico</h2>
   <div class="pills" style="margin-bottom:12px">${["todos","cancelados"].map(h=>`<button class="pill ${S.hist===h?"on":""}" onclick="S.hist='${h}';render()">${h[0].toUpperCase()+h.slice(1)}</button>`).join("")}</div>
@@ -646,6 +683,45 @@ function viewHistorico(){
 }
 async function reativar(id){await setStatus(id,"ativo");toast("Reativado");render()}
 async function backup(){const t=JSON.stringify(S.rows,null,1);try{await navigator.clipboard.writeText(t);toast("Backup copiado ✓")}catch(e){const w=window.open("","_blank");if(w){w.document.write("<pre>"+esc(t)+"</pre>")}}}
+
+/* ===== Importação do quadro do JP (uma vez) ===== */
+const IMPORT_KEY="jp-quadro-2026-10";
+async function pularImport(){await saveRow("import",today(),{key:IMPORT_KEY,pulado:true});await load();render()}
+async function importarJP(){
+  const b=$("#bimp");b.disabled=true;b.textContent="Importando…";
+  try{
+    const D0="2026-08-10";
+    const c0=await fetchCot(D0),cE=await fetchCot("2026-10-06"),cC=await fetchCot("2026-10-05");
+    if(!cotOk(c0)||!cotOk(cE)||!cotOk(cC))throw new Error("não consegui buscar a cotação. Tente de novo com internet.");
+    const add=async(tipo,data,dados)=>{const id=await saveRow(tipo,data,dados);await load();return id};
+    const prod=n=>act("produto").find(p=>D(p).nome===n)?.id||"";
+    const cli={};
+    for(const n of ["Emerson (Erme)","Fred","Chris","Roberto (Scuba Minas)","Eudes"])cli[n]=await add("cliente",D0,{numero:nextNum("cliente","C"),nome:n});
+    // gastos do JP em 10/08
+    const itJP=[["2 stage bolt snaps",14.38],["2 mangueiras 56 cm",31.38],["MetallSub bracket",140],["Adapter AP",40],["Double ender",6.14],["Rings",10],["2 camisetas",50],["Sofnolime",48],["S7 kit (unidade do JP)",4646.86]].map(([nome,preco])=>({produto_id:"",nome,qtd:1,preco}));
+    const p1={numero:nextNum("compra","P"),fornecedor:"Smartdive / diversos",doc:"10/08 · unidade do JP + acessórios",itens:itJP,frete:0,iva:0,venda_id:"",obs:"Pago pelo JP (quadro de gastos)",cot:c0,moeda:"EUR"};p1.total=r2(compraTotal({dados:p1}));
+    const p1id=await add("compra",D0,p1);
+    await add("pagamento",D0,{compra_id:p1id,moeda:"EUR",valor:p1.total,cot:c0,valor_brl:r2(p1.total*c0.EUR),valor_eur:p1.total,pago_por:"Johnny",forma:"Outro",obs:"Pago pelo JP"});
+    for(const [cat,desc,moeda,valor] of [["Curso CCR","Crossover","EUR",450],["Viagem","Passagem","BRL",7323.81],["Curso CCR","S7 diver and instructor","EUR",2500],["Curso CCR","Dual CCR diver and instructor","EUR",2500]])
+      await add("custo",D0,{cat,desc,moeda,valor,cot:c0,valor_brl:r2(conv(valor,moeda,"BRL",c0)),pago_por:"Johnny",venda_id:""});
+    // venda do Erme
+    const ve={numero:nextNum("venda","V"),cliente_id:cli["Emerson (Erme)"],moeda:"USD",etapa:"Pedido",itens:[{produto_id:prod("Kit básico S7 (main set ready-to-dive)"),nome:"",qtd:1,preco:5638.70,desc:0},{produto_id:prod("Capa de calibração"),nome:"",qtd:1,preco:110.74,desc:0},{produto_id:"",nome:"Swagelok QC6 (extra)",qtd:1,preco:111.87,desc:0}],obs:"Invoice MT-S7-2026-002 · câmbio combinado € 1 = US$ 1,13",cot:cE};
+    ve.total=r2(itensTot(ve.itens));ve.total_brl=r2(ve.total*cE.USD);
+    const veid=await add("venda","2026-10-06",ve);
+    await add("recebimento",D0,{venda_id:veid,moeda:"EUR",valor:2000,cot:c0,valor_brl:r2(2000*c0.EUR),valor_venda:2260,abate_manual:true,recebido_por:"Johnny",forma:"Outro",obs:"Adiantamento (abate a € 1 = US$ 1,13)"});
+    // reservas com adiantamento de € 1.000
+    for(const n of ["Fred","Chris","Roberto (Scuba Minas)","Eudes"]){
+      const vid=await add("venda",D0,{numero:nextNum("venda","V"),cliente_id:cli[n],moeda:"EUR",etapa:"Reserva",itens:[],obs:"Reserva com adiantamento",cot:c0,total:0,total_brl:0});
+      await add("recebimento",D0,{venda_id:vid,moeda:"EUR",valor:1000,cot:c0,valor_brl:r2(1000*c0.EUR),valor_venda:1000,recebido_por:"Johnny",forma:"Outro",obs:"Adiantamento"});
+    }
+    // compra Smartdive do Erme (sem IVA)
+    const it2=[["Plastic Canister (main set + capa)",1,4159.78],["QC6 female 9/16",1,81.18],["QC6 male 9/16",2,81.18],["QC4 male 9/16",1,81.18],["QC4 female 9/16",1,81.18]].map(([nome,qtd,preco])=>({produto_id:"",nome,qtd,preco}));
+    const p2={numero:nextNum("compra","P"),fornecedor:"Smartdive",doc:"FP 2026A/20",itens:it2,frete:57.50,iva:0,venda_id:veid,obs:"Sem IVA (fatura reemitida sem carimbo de exportação)",cot:cC,moeda:"EUR"};p2.total=r2(compraTotal({dados:p2}));
+    await add("compra","2026-10-05",p2);
+    await add("import",today(),{key:IMPORT_KEY});
+    toast("Importado ✓");go("painel");
+  }catch(e){toast("Erro na importação: "+(e.message||e));b.disabled=false;b.textContent="Importar agora"}
+}
 
 /* ===== Start ===== */
 $("#brand").onclick=()=>go("home");
