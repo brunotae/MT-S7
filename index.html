@@ -102,6 +102,14 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 .empty{color:var(--dim);font-size:13.5px;text-align:center;padding:24px 8px}
 .foot{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--mut);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .login{max-width:380px;margin:8vh auto 0}
+.vitems .vit{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.vitems .vit:first-child{border-top:none;padding-top:0}
+.addit{border-top:1px dashed var(--line);margin-top:12px;padding-top:12px}
+.row3{display:grid;grid-template-columns:70px 1fr 74px;gap:8px;margin-top:8px}.row3 input{padding:10px 8px;font-size:15px}
+.filebtn{display:inline-flex;align-items:center;gap:6px;border:1px dashed #4a5263;background:var(--s1);color:var(--tx);border-radius:999px;padding:10px 16px;font-size:13.5px;font-weight:600;cursor:pointer;min-height:44px;margin-top:10px}
+.filebtn:hover{border-color:var(--red)}
+.anx{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}.anx:first-child{border-top:none}
+.anxo{background:none;border:none;color:var(--tx);font-family:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0;font-size:13.5px;font-weight:600}
+.anxo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}.anxo small{font-weight:400;font-size:11.5px;color:var(--mut)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1e2533;border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-size:13.5px;z-index:9;max-width:90vw}
 @media (min-width:640px){.strip b{font-size:17px}.bigbtn{min-height:150px}}
 /* ===== v5 dashboard ===== */
@@ -367,7 +375,7 @@ function render(){
   if(!S.user){m.innerHTML=viewLogin();m.className="";return}
   const [v,sub]=S.view.split(":");m.className=(v==="home"||v==="jornada")?"":"narrow";
   if(v==="home")setTimeout(loadFx,0);
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
   m.innerHTML=(V[v]||viewHome)();
 }
@@ -416,7 +424,7 @@ function stepsHtml(j){return `<div class="steps">${PASSOS.map((p,i)=>`<div class
 const ini=n=>String(n||"?").replace(/\(.*?\)/g,"").trim().split(/\s+/).map(x=>x[0]).slice(0,2).join("").toUpperCase();
 function jrowHtml(v){const d=D(v),c=byId(d.cliente_id),j=jornada(v),s=vendaSaldo(v);
   return `<button class="jrow" onclick="go('venda','${v.id}')">
-   <div class="jc"><div class="av">${esc(ini(D(c).nome))}</div><div style="min-width:0"><div class="nm">${esc(D(c).nome||"—")}</div><div class="cd">${esc(D(c).numero||"")} · ${esc(d.numero)} · ${(d.itens||[]).length?fmt(vendaTotal(v),d.moeda):"sem itens"}</div></div></div>
+   <div class="jc"><div class="av">${esc(ini(D(c).nome))}</div><div style="min-width:0"><div class="nm">${esc(D(c).nome||"—")}</div><div class="cd">${(d.anexos||[]).length?"📎"+(d.anexos||[]).length+" · ":""}${esc(D(c).numero||"")} · ${esc(d.numero)} · ${(d.itens||[]).length?fmt(vendaTotal(v),d.moeda):"sem itens"}</div></div></div>
    ${stepsHtml(j)}
    <div class="jmeta"><span>Próximo: <b>${esc(j.prox)}</b></span><span>${d.entrega?"📍 "+esc(d.entrega.local||"entregue")+" · "+dCurta(d.entrega.data):isRes(v)?"adiantou "+fmt(vendaRecebido(v),d.moeda):s>0.01?"saldo "+fmt(s,d.moeda):""}</span></div>
    <div class="jst">${st(j.status[0],j.status[1])}</div></button>`}
@@ -493,7 +501,7 @@ function viewHome(){
   <div class="foot mobile-only"><span>Conectado como <b>${esc(S.me)}</b></span><span><button class="chip" onclick="go('senha')">🔑 Senha</button> <button class="chip" onclick="sair()">Sair</button></span></div>`;
 }
 function viewJornada(){return `${backTo("home")}${jornadaPanel(true)}`}
-const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
+const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
 function renderShell(){
   const side=$("#side"),top=$("#topbar");if(!S.user){side.innerHTML="";top.innerHTML="";return}
   const v=S.view.split(":")[0];
@@ -514,7 +522,7 @@ function toggleManual(){F.showMan=!F.showMan;$("#fman").hidden=!F.showMan}
 function manCot(){F.cot={EUR:num($("#mEUR").value),USD:num($("#mUSD").value),BRL:1,manual:true,fonte:F.cot?.fonte};const t=$("#fcott");if(t)t.innerHTML=cotTxt(F.cot);F.onCot&&F.onCot()}
 const cotBox=()=>`<div class="cot" id="fcot"></div>`;
 function formActions(tipo,id){
-  return `<div class="err" id="ferr"></div><div class="actions">
+  return `${ANX_TIPOS.includes(tipo)?anexosForm():""}<div class="err" id="ferr"></div><div class="actions">
    <button class="btn" id="fsave" onclick="FORMS.${tipo}.save()">Salvar</button>
    <button class="btn ghost" onclick="history_back()">Fechar</button>
    ${id?`<button class="btn danger" id="fcancel" onclick="armCancel('${id}')">Cancelar lançamento</button>`:""}</div>`;
@@ -525,7 +533,10 @@ function armCancel(id){const b=$("#fcancel");if(!b.classList.contains("armed")){
 function ferr(t){$("#ferr").textContent=t;$("#fsave").disabled=false}
 async function doSave(tipo,data,dados,id,after){
   $("#fsave").disabled=true;
-  try{const nid=await saveRow(tipo,data,dados,id);await load();toast("Salvo ✓");after?after(nid):history_back()}
+  if(id&&dados.anexos===undefined&&D(byId(id)).anexos)dados.anexos=D(byId(id)).anexos;
+  const files=F?.files||[];
+  try{const nid=await saveRow(tipo,data,dados,id);await load();
+    if(files.length){$("#fsave").textContent="Enviando arquivos…";try{await uploadAnexos(nid,files)}catch(e){toast("Salvo, mas o anexo falhou: "+e.message)}}toast("Salvo ✓");after?after(nid):history_back()}
   catch(e){ferr("Erro ao salvar: "+(e.message||e))}
 }
 function moneyFields(){
@@ -762,13 +773,43 @@ function viewVendas(){
    <div class="l2"><span>${dCurta(v.data)} · ${etapaTag(v)} ${isRes(v)?st("adiantou "+fmt(vendaRecebido(v),D(v).moeda),"ok"):(s>0.01?st("falta "+fmt(s,D(v).moeda),"warn"):st("quitada","ok"))}</span><span>${isRes(v)?"":`lucro ${fmt(l.lucro)} · ${fmtN(l.pct*100,1)}%${l.est?"*":""}`}</span></div></button>`}).join(""):'<div class="empty">Nenhuma venda ainda.</div>'}</div>
   ${vs.some(v=>!isRes(v)&&vendaLucro(v).est)?'<div class="hint">* custo estimado pela tabela dealer (nenhuma compra ligada a essa venda).</div>':""}`;
 }
+/* adicionar item direto na venda */
+function vAddProd(){const v=byId(S.param),val=$("#aprod").value;$("#anome").hidden=val!=="__txt";
+  const p=byId(val);if(p){const m=D(v).moeda,c=D(v).cot,eur=num(D(p).varejo);$("#apreco").value=fmtIn(m==="EUR"?eur:r2(conv(eur,"EUR",m,c)))}else if(val==="__txt"){$("#apreco").value="";$("#anome").focus()}}
+async function vAddItem(id){const v=byId(id),val=$("#aprod").value,e=$("#aerr");
+  const it={produto_id:val&&val!=="__txt"?val:"",nome:val==="__txt"?$("#anome").value.trim():"",qtd:num($("#aqtd").value)||1,preco:num($("#apreco").value),desc:num($("#adesc").value)};
+  if(!val)return e.textContent="Escolha um produto da lista ou “Outro produto”.";
+  if(val==="__txt"&&!it.nome)return e.textContent="Escreva o nome do produto.";
+  if(!it.preco)return e.textContent="Informe o preço.";
+  const d={...D(v)};d.itens=[...(d.itens||[]),it];
+  const virou=d.etapa==="Reserva"&&(D(v).itens||[]).length===0;if(virou)d.etapa="Pedido";
+  d.total=r2(itensTot(d.itens));d.total_brl=r2(conv(d.total,d.moeda,"BRL",d.cot));
+  $("#abtn").disabled=true;
+  try{await saveRow("venda",v.data,d,v.id);await load();toast(virou?"Produto adicionado ✓ · etapa: Pedido":"Produto adicionado ✓");render()}catch(err){e.textContent="Erro: "+err.message;$("#abtn").disabled=false}}
+async function vRemItem(id,i){const v=byId(id),d={...D(v)};d.itens=(d.itens||[]).filter((_,k)=>k!==i);d.total=r2(itensTot(d.itens));d.total_brl=r2(conv(d.total,d.moeda,"BRL",d.cot));
+  await saveRow("venda",v.data,d,v.id);await load();toast("Item removido");render()}
 function viewVendaDet(){
   const v=byId(S.param);if(!v)return viewVendas();const d=D(v),l=vendaLucro(v),s=vendaSaldo(v);
   const e=d.entrega;
   return `${backTo("vendas")}<div class="lbl">Venda ${esc(d.numero)}${v.status==="cancelado"?" · cancelada":""}</div><h2>${esc(cliNome(d.cliente_id))} ${etapaTag(v)}</h2>
-  <div class="card"><dl class="kv">${(d.itens||[]).map(it=>`<dt>${fmtN(it.qtd,0)}× ${esc(itNome(it))}${it.desc?` <span class="dim">(−${fmtN(it.desc,1)}%)</span>`:""}</dt><dd>${fmt(itemTot(it),d.moeda)}</dd>`).join("")}
-   <dt class="tt">Total</dt><dd class="tt">${fmt(vendaTotal(v),d.moeda)}</dd>
-   <dt>Recebido</dt><dd class="ok">${fmt(vendaRecebido(v),d.moeda)}</dd><dt>Falta receber</dt><dd class="${s>0.01?"warn":""}">${fmt(s,d.moeda)}</dd></dl>
+  <div class="sec"><b>🤿 O que foi vendido</b><i></i><small>${(d.itens||[]).length} item(ns)</small></div>
+  <div class="card">
+   ${(d.itens||[]).length?`<div class="vitems">${(d.itens||[]).map((it,i)=>`<div class="vit"><div><b>${fmtN(it.qtd,0)}× ${esc(itNome(it))}</b><div class="small mut">${fmt(it.preco,d.moeda)} cada${it.desc?` · desconto ${fmtN(it.desc,1)}%`:""}${it.produto_id?"":" · digitado à mão"}</div></div><div class="right"><b>${fmt(itemTot(it),d.moeda)}</b><br><button class="linkbtn" onclick="vRemItem('${v.id}',${i})">remover</button></div></div>`).join("")}</div>`
+     :`<div class="empty" style="padding:10px 0 14px">Nenhum produto ainda. Adicione abaixo o que o cliente está comprando.</div>`}
+   <div class="addit">
+    <div class="lbl" style="margin-bottom:8px">+ Adicionar produto</div>
+    <select id="aprod" onchange="vAddProd()"><option value="">Escolha da lista…</option><option value="__txt">✏️ Outro produto (escrever à mão)</option>
+     ${["Conjunto CCR","Peça"].map(g=>`<optgroup label="${g}">${act("produto").filter(p=>D(p).tipo===g).map(p=>`<option value="${p.id}">${esc(D(p).nome)} · ${fmt(D(p).varejo,"EUR")}</option>`).join("")}</optgroup>`).join("")}</select>
+    <input id="anome" placeholder="Escreva o nome do produto" style="margin-top:8px" hidden>
+    <div class="row3"><div><label class="small mut">Qtd</label><input inputmode="decimal" id="aqtd" value="1"></div><div><label class="small mut">Preço unit. (${SYM[d.moeda]})</label><input inputmode="decimal" id="apreco" placeholder="0,00"></div><div><label class="small mut">Desc. %</label><input inputmode="decimal" id="adesc" placeholder="0"></div></div>
+    <div class="err" id="aerr"></div>
+    <button class="btn" style="margin-top:10px" id="abtn" onclick="vAddItem('${v.id}')">Adicionar à venda</button>
+   </div>
+  </div>
+  <div class="card" style="margin-top:10px"><dl class="kv">
+   <dt class="tt" style="border:none;padding:0;margin:0">Total</dt><dd class="tt" style="border:none;padding:0;margin:0">${fmt(vendaTotal(v),d.moeda)}</dd>
+   <dt>Recebido</dt><dd class="ok">${fmt(vendaRecebido(v),d.moeda)}</dd>
+   ${s<-0.01?`<dt>Crédito do cliente (pagou a mais / adiantado)</dt><dd class="ok">${fmt(-s,d.moeda)}</dd>`:`<dt>Falta receber</dt><dd class="${s>0.01?"warn":""}">${fmt(s,d.moeda)}</dd>`}</dl>
    <div class="hint">${dLonga(v.data)}${d.obs?" · "+esc(d.obs):""}</div></div>
   <div class="sec"><b>Entrega</b><i></i></div>
   ${e?`<button class="card item" onclick="go('form:entrega','${v.id}')"><div class="l1"><b>📍 ${esc(e.local||"local não informado")}</b><b class="ok">${dCurta(e.data)}</b></div><div class="l2"><span>${esc(e.modo||"")}${e.obs?" · "+esc(e.obs):""}</span><span>editar</span></div></button>`
@@ -784,6 +825,7 @@ function viewVendaDet(){
    <dt class="tt">Lucro</dt><dd class="tt ${l.lucro>=0?"ok":"redt"}">${fmt(l.lucro)} · ${fmtN(l.pct*100,1)}%</dd>
    <dt>Tae (50%)</dt><dd>${fmt(l.lucro/2)}</dd><dt>Johnny (50%)</dt><dd>${fmt(l.lucro/2)}</dd></dl>
    ${l.est?'<div class="hint">Nenhuma compra ligada a esta venda: custo estimado pela tabela dealer × câmbio do dia da venda.</div>':""}</div>`}
+  ${anexosDet(v)}
   <div class="actions"><button class="btn" onclick="go('form:recebimento',{venda_id:'${v.id}'})">+ Recebimento</button>
    <button class="btn ghost" onclick="go('form:custo',{venda_id:'${v.id}'})">+ Custo</button>
    <button class="btn ghost" onclick="go('form:venda','${v.id}')">Editar venda</button></div>`;
@@ -806,6 +848,7 @@ function viewCompraDet(){
    <div class="hint">${dLonga(c.data)}${d.venda_id?" · para "+esc(D(byId(d.venda_id)).numero||""):" · estoque"}${d.obs?" · "+esc(d.obs):""}</div></div>
   <div class="sec"><b>Pagamentos</b><i></i><small>${pagsDe(c).length}</small></div>
   <div class="list">${pagsDe(c).map(p=>`<button class="card item" onclick="go('form:pagamento','${p.id}')"><div class="l1"><b>${fmt(D(p).valor,D(p).moeda)}</b><b>${fmt(D(p).valor_eur,"EUR")}</b></div><div class="l2"><span>${dCurta(p.data)} · ${esc(D(p).forma)} · ${esc(D(p).pago_por)}</span><span>${D(p).moeda==="EUR"?"R$ "+fmtN(D(p).cot?.EUR,4):"€ 1 = "+SYM[D(p).moeda]+" "+fmtN(conv(1,"EUR",D(p).moeda,D(p).cot),4)}</span></div></button>`).join("")||'<div class="empty">Nenhum pagamento.</div>'}</div>
+  ${anexosDet(c)}
   <div class="actions"><button class="btn" onclick="go('form:pagamento',{compra_id:'${c.id}'})">+ Pagamento</button><button class="btn ghost" onclick="go('form:compra','${c.id}')">Editar compra</button></div>`;
 }
 function viewClientes(){
@@ -939,6 +982,52 @@ async function importarJP(){
     await add("import",today(),{key:IMPORT_KEY});
     toast("Importado ✓");go("painel");
   }catch(e){toast("Erro na importação: "+(e.message||e));b.disabled=false;b.textContent="Importar agora"}
+}
+
+/* ===== Anexos (Supabase Storage) ===== */
+const BUCKET="mts7-anexos";
+const ANX_TIPOS=["compra","pagamento","venda","recebimento","custo"];
+const ACCEPT="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.heic,.zip";
+const fsize=b=>b>1048576?fmtN(b/1048576,1)+" MB":Math.max(1,Math.round((b||0)/1024))+" KB";
+const ficon=n=>/\.pdf$/i.test(n)?"📄":/\.(png|jpe?g|heic|webp|gif)$/i.test(n)?"🖼️":"📎";
+function anexosList(r){const a=D(r).anexos||[];return a.map((x,i)=>`<div class="anx"><button type="button" class="anxo" onclick="abrirAnexo('${esc(x.path)}')"><span>${ficon(x.nome)} ${esc(x.nome)}</span><small>${fsize(x.tamanho)} · ${esc(x.por||"")} · ${dCurta(x.em)} · abrir</small></button><button type="button" class="linkbtn" onclick="remAnexo('${r.id}',${i},this)">remover</button></div>`).join("")}
+function anexosForm(){const r=F.id?byId(F.id):null;
+  return `<div class="sec"><b>📎 Anexos</b><i></i><small>invoice, recibo, comprovante…</small></div>
+  <div id="fanx">${r?anexosList(r):""}</div>
+  <label class="filebtn">＋ Anexar arquivo<input type="file" multiple accept="${ACCEPT}" onchange="queueFiles(this)" hidden></label>
+  <div id="fqueue" class="small mut" style="margin-top:6px;line-height:1.7"></div>`}
+function queueFiles(inp){F.files=[...(F.files||[]),...inp.files];inp.value="";$("#fqueue").innerHTML=F.files.map(f=>`${ficon(f.name)} ${esc(f.name)} · ${fsize(f.size)} <span class="dim">(vai junto ao salvar)</span>`).join("<br>")}
+async function uploadAnexos(id,files){
+  const r=byId(id);const lista=[...(D(r).anexos||[])];
+  for(const f of files){
+    if(f.size>50*1048576)throw new Error(f.name+" tem mais de 50 MB");
+    const safe=f.name.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w.\-]+/g,"_");const path=`${id}/${Date.now()}-${safe}`;
+    const {error}=await sb.storage.from(BUCKET).upload(path,f,{contentType:f.type||undefined,upsert:false});
+    if(error)throw new Error(f.name+": "+error.message);
+    lista.push({path,nome:f.name,tipo:f.type,tamanho:f.size,em:today(),por:S.me});
+  }
+  const {error}=await sb.from(T).update({dados:{...D(byId(id)),anexos:lista}}).eq("id",id);if(error)throw error;await load();
+}
+async function abrirAnexo(path){const w=window.open("","_blank");
+  const {data,error}=await sb.storage.from(BUCKET).createSignedUrl(path,3600);
+  if(error||!data?.signedUrl){if(w)w.close();return toast("Não consegui abrir: "+(error?.message||"tente de novo"))}
+  if(w)w.location=data.signedUrl;else location.href=data.signedUrl}
+async function remAnexo(id,i,btn){
+  if(!btn.dataset.arm){btn.dataset.arm="1";btn.textContent="toque de novo";setTimeout(()=>{if(btn.isConnected){delete btn.dataset.arm;btn.textContent="remover"}},3500);return}
+  const r=byId(id),a=[...(D(r).anexos||[])],[x]=a.splice(i,1);
+  await sb.storage.from(BUCKET).remove([x.path]);
+  await sb.from(T).update({dados:{...D(r),anexos:a}}).eq("id",id);await load();toast("Anexo removido");
+  if(S.view.startsWith("form")){const e=$("#fanx");if(e)e.innerHTML=anexosList(byId(id))}else render()}
+function anexosDet(r){
+  return `<div class="sec"><b>📎 Anexos</b><i></i><small>${(D(r).anexos||[]).length}</small></div><div class="card">${anexosList(r)||'<div class="empty" style="padding:4px 0 10px">Nenhum arquivo. Anexe invoice, recibo, comprovante, foto…</div>'}
+  <label class="filebtn">＋ Anexar arquivo<input type="file" multiple accept="${ACCEPT}" onchange="upDet('${r.id}',this)" hidden></label><div id="dup" class="small mut" style="margin-top:6px"></div></div>`}
+async function upDet(id,inp){const fs=[...inp.files];inp.value="";if(!fs.length)return;$("#dup").textContent="Enviando "+fs.length+" arquivo(s)…";
+  try{await uploadAnexos(id,fs);toast("Anexado ✓");render()}catch(e){$("#dup").textContent="Erro: "+e.message+(String(e.message).includes("not found")||String(e.message).includes("policy")?" · rode o SQL de anexos no Supabase":"")}}
+function viewArquivos(){
+  const all=[];S.rows.filter(r=>r.status!=="cancelado").forEach(r=>(D(r).anexos||[]).forEach(x=>all.push({r,x})));
+  all.sort((a,b)=>String(b.x.em).localeCompare(a.x.em));
+  return `${backTo("home")}<h2>📎 Arquivos</h2><div class="hint" style="margin:-6px 0 12px">Tudo o que foi anexado aos lançamentos. Para anexar, abra a venda, compra, pagamento, recebimento ou custo.</div>
+  <div class="list">${all.map(({r,x})=>`<div class="card item"><div class="l1"><button class="anxo" style="padding:0" onclick="abrirAnexo('${esc(x.path)}')"><span>${ficon(x.nome)} ${esc(x.nome)}</span></button><button class="chip" style="min-height:34px;padding:6px 12px" onclick='abrir(byId("${r.id}"))'>ver lançamento</button></div><div class="l2"><span>${TIPOS[r.tipo]} · ${esc(resumo(r))}</span><span>${fsize(x.tamanho)} · ${dCurta(x.em)}</span></div></div>`).join("")||'<div class="empty">Nenhum arquivo ainda.</div>'}</div>`;
 }
 
 /* ===== Start ===== */
