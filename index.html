@@ -114,6 +114,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 #drop{position:fixed;inset:10px;z-index:20;border:3px dashed var(--red);border-radius:24px;background:rgba(10,13,18,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:grid;place-items:center;pointer-events:none}
 #drop>div{text-align:center}#drop span{display:block;font-size:54px}#drop b{display:block;font-size:24px;margin-top:8px}#drop small{display:block;color:var(--mut);margin-top:6px;font-size:14px}
 #drop.no{border-color:#5d636e}
+.rv{display:flex;gap:8px;margin-top:10px;align-items:center}.rv select{flex:1;min-width:0}.rv .btn{min-height:46px;padding:10px 18px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1e2533;border:1px solid var(--line);padding:10px 18px;border-radius:999px;font-size:13.5px;z-index:9;max-width:90vw}
 @media (min-width:640px){.strip b{font-size:17px}.bigbtn{min-height:150px}}
 /* ===== v5 dashboard ===== */
@@ -346,7 +347,7 @@ function vendaCusto(v){
 function vendaLucro(v){const rec=vendaBRL(v),c=vendaCusto(v),ct=sum(custosDe(v),x=>D(x).valor_brl);const l=rec-c.v-ct;return{rec,custo:c.v,est:c.est,custos:ct,lucro:l,pct:rec?l/rec:0}}
 const cliNome=id=>{const c=byId(id);return c?`${D(c).numero} · ${D(c).nome}`:"—"};
 const prodNome=id=>D(byId(id)).nome||"(produto)";
-const itNome=it=>it.produto_id?prodNome(it.produto_id):(it.nome||"(produto)");
+const itNome=it=>it.produto_id?((pCod(byId(it.produto_id))?pCod(byId(it.produto_id))+" · ":"")+prodNome(it.produto_id)):(it.nome||"(produto)");
 function nextNum(tipo,pref){const n=Math.max(0,...S.rows.filter(r=>r.tipo===tipo).map(r=>parseInt(String(D(r).numero||"").replace(/\D/g,""))||0))+1;return pref+String(n).padStart(3,"0")}
 
 /* ===== Dados ===== */
@@ -357,7 +358,7 @@ async function load(){
 }
 async function seedProdutos(){
   if(S.rows.some(r=>r.tipo==="produto"))return;
-  const rows=SEED.map(([nome,tipo,dealer,varejo])=>({tipo:"produto",data:today(),dados:{nome,tipo,dealer,varejo}}));
+  const rows=CATALOGO.map(([codigo,nome,tipo,dealer,varejo,nome_en,ref])=>({tipo:"produto",data:today(),dados:{codigo,nome,tipo,dealer,varejo,nome_en,ref}}));
   const {error}=await sb.from(T).insert(rows);
   if(error){toast("Sua conta ainda não está liberada no MT-S7 (veja o SQL de sócios).");return}
   await load();
@@ -380,7 +381,7 @@ function render(){
   if(!S.user){m.innerHTML=viewLogin();m.className="";return}
   const [v,sub]=S.view.split(":");m.className=(v==="home"||v==="jornada")?"":"narrow";
   if(v==="home")setTimeout(loadFx,0);
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas,revisar:viewRevisar};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
   m.innerHTML=(V[v]||viewHome)();
 }
@@ -394,7 +395,7 @@ function viewLogin(){return `<div class="login card">
   <div class="hint">Use o mesmo e-mail e senha da Agenda.</div><div class="err" id="lerr"></div></div>`}
 async function doLogin(){const {data,error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}await afterAuth(data.session)}
 async function doSignup(){const {data,error}=await sb.auth.signUp({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}if(data.session)await afterAuth(data.session);else $("#lerr").textContent="Conta criada. Agora toque em Entrar."}
-async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos();await seedNotas()}go("home")}
+async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos();await migrarCatalogo();await seedNotas()}go("home")}
 async function sair(){await sb.auth.signOut();S.user=null;S.rows=[];render()}
 
 /* ===== Home ===== */
@@ -511,7 +512,7 @@ function renderShell(){
   const side=$("#side"),top=$("#topbar");if(!S.user){side.innerHTML="";top.innerHTML="";return}
   const v=S.view.split(":")[0];
   side.innerHTML=`<div class="lg" onclick="go('home')"><img src="logo.png" alt=""><b>MT-<span>S7</span></b><small>S7 CCR · Brasil</small></div>
-   <nav>${NAV.map(([k,ic,pt,en])=>`<button class="${v===k||(k==="vendas"&&v==="venda")||(k==="compras"&&v==="compra")?"on":""}" onclick="go('${k}'${k==="socio"?",'"+S.me+"'":""})"><span class="ni">${ic}</span><span><b>${pt}</b><small>${en}</small></span></button>`).join("")}</nav>
+   <nav>${NAV.map(([k,ic,pt,en])=>`<button class="${v===k||(k==="vendas"&&v==="venda")||(k==="compras"&&v==="compra")||(k==="estoque"&&v==="revisar")?"on":""}" onclick="go('${k}'${k==="socio"?",'"+S.me+"'":""})"><span class="ni">${ic}</span><span><b>${pt}</b><small>${en}</small></span></button>`).join("")}</nav>
    <div class="me">Conectado como<br><b style="color:var(--tx)">${esc(S.me)}</b> · ${esc(S.user.email)}<div style="margin-top:8px"><button class="chip" onclick="sair()">Sair</button></div></div>`;
   top.innerHTML=`<input class="search" placeholder="🔍 Buscar cliente ou venda…" value="${esc(S.q||"")}" oninput="S.q=this.value;if(S.view!=='home'&&S.view!=='jornada'){go('jornada')}else{const l=$('#jlist');if(l){render();const i=$('#topbar .search');i.focus();i.setSelectionRange(i.value.length,i.value.length)}}"><button class="btn" style="min-height:40px;padding:8px 16px;font-size:13px" onclick="go('form:venda')">+ Venda</button><div class="who"><div class="av" style="width:32px;height:32px;font-size:12px">${esc(ini(S.me))}</div><div><b>${esc(S.me)}</b><div class="small mut">Sócio</div></div></div>`;
 }
@@ -556,7 +557,7 @@ function itemsHtml(){
   return F.itens.map((it,i)=>`<div class="it">
     <button class="rm" onclick="rmItem(${i})">remover</button>
     <select onchange="setProd(${i},this.value)"><option value="">Escolha o produto…</option><option value="__txt" ${it.livre?"selected":""}>✏️ Outro produto (digitar)</option>
-      ${["Conjunto CCR","Peça"].map(g=>`<optgroup label="${g}">${prods.filter(p=>D(p).tipo===g).map(p=>`<option value="${p.id}" ${p.id===it.produto_id?"selected":""}>${esc(D(p).nome)}</option>`).join("")}</optgroup>`).join("")}
+      ${["Conjunto CCR","Peça"].map(g=>`<optgroup label="${g}">${prodsOrd().filter(p=>D(p).tipo===g).map(p=>`<option value="${p.id}" ${p.id===it.produto_id?"selected":""}>${pCod(p)?esc(pCod(p))+" · ":""}${esc(D(p).nome)}</option>`).join("")}</optgroup>`).join("")}
     </select>
     ${it.livre?`<input placeholder="Nome do produto" style="margin-top:8px" value="${esc(it.nome||"")}" oninput="F.itens[${i}].nome=this.value">`:""}
     <div class="g ${isV?"v":""}">
@@ -805,7 +806,9 @@ async function seedNotas(){
 FORMS.produto={
   html(){const r=editRow();const d=D(r);F={kind:"prod",id:r?.id,back:"produtos",ptipo:d.tipo||"Peça"};
     return `${backTo("produtos")}<div class="lbl">${r?"Editar":"Novo"} produto</div><h2>Produto</h2>
-    <div class="f"><label>Nome</label><input id="fnome" value="${esc(d.nome||"")}"></div>
+    <div class="row2"><div class="f"><label>Código</label><input id="fcod" value="${esc(d.codigo||"")}" placeholder="Ex.: S7-CEL" style="text-transform:uppercase"></div><div class="f"><label>Ref. Smartdive</label><input id="fref" value="${esc(d.ref||"")}" placeholder="Ex.: Acc #3"></div></div>
+    <div class="f"><label>Nome (português)</label><input id="fnome" value="${esc(d.nome||"")}"></div>
+    <div class="f"><label>Nome na lista da Smartdive</label><input id="fnen" value="${esc(d.nome_en||"")}"></div>
     <div class="f"><label>Tipo</label>${pills("ptipo",["Conjunto CCR","Peça"],F.ptipo)}</div>
     <div class="row2"><div class="f"><label>Preço dealer (€)</label><input inputmode="decimal" id="fdeal" value="${fmtIn(d.dealer)}" oninput="pm()"></div>
     <div class="f"><label>Preço varejo (€)</label><input inputmode="decimal" id="fvar" value="${fmtIn(d.varejo)}" oninput="pm()"></div></div>
@@ -813,7 +816,8 @@ FORMS.produto={
     ${formActions("produto",r?.id)}`},
   after(){pm()},
   save(){const nome=$("#fnome").value.trim();if(!nome)return ferr("Digite o nome.");const r=editRow();
-    doSave("produto",r?.data||today(),{nome,tipo:F.ptipo,dealer:num($("#fdeal").value),varejo:num($("#fvar").value)},F.id);}
+    const cod=$("#fcod").value.trim().toUpperCase();if(cod&&act("produto").some(p=>pCod(p)===cod&&p.id!==F.id))return ferr("Já existe um produto com o código "+cod+".");
+    doSave("produto",r?.data||today(),{...D(r),codigo:cod,ref:$("#fref").value.trim(),nome,nome_en:$("#fnen").value.trim(),tipo:F.ptipo,dealer:num($("#fdeal").value),varejo:num($("#fvar").value)},F.id);}
 };
 function pm(){const d=num($("#fdeal").value),v=num($("#fvar").value);$("#fpm").textContent=v?`Margem: ${fmt(v-d,"EUR")} · ${fmtN((v-d)/v*100,1)}% sobre a venda`:""}
 
@@ -854,7 +858,7 @@ function viewVendaDet(){
    <div class="addit">
     <div class="lbl" style="margin-bottom:8px">+ Adicionar produto</div>
     <select id="aprod" onchange="vAddProd()"><option value="">Escolha da lista…</option><option value="__txt">✏️ Outro produto (escrever à mão)</option>
-     ${["Conjunto CCR","Peça"].map(g=>`<optgroup label="${g}">${act("produto").filter(p=>D(p).tipo===g).map(p=>`<option value="${p.id}">${esc(D(p).nome)} · ${fmt(D(p).varejo,"EUR")}</option>`).join("")}</optgroup>`).join("")}</select>
+     ${["Conjunto CCR","Peça"].map(g=>`<optgroup label="${g}">${prodsOrd().filter(p=>D(p).tipo===g).map(p=>`<option value="${p.id}">${pCod(p)?esc(pCod(p))+" · ":""}${esc(D(p).nome)} · ${fmt(D(p).varejo,"EUR")}</option>`).join("")}</optgroup>`).join("")}</select>
     <input id="anome" placeholder="Escreva o nome do produto" style="margin-top:8px" hidden>
     <div class="row3"><div><label class="small mut">Qtd</label><input inputmode="decimal" id="aqtd" value="1"></div><div><label class="small mut">Preço unit. (${SYM[d.moeda]})</label><input inputmode="decimal" id="apreco" placeholder="0,00"></div><div><label class="small mut">Desc. %</label><input inputmode="decimal" id="adesc" placeholder="0"></div></div>
     <div class="err" id="aerr"></div>
@@ -915,18 +919,13 @@ function viewClientes(){
 function viewProdutos(){
   const ps=act("produto");
   return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>Produtos</h2><button class="chip" onclick="go('form:produto')">+ Produto</button></div>
-  ${["Conjunto CCR","Peça"].map(g=>`<div class="sec"><b>${g}</b><i></i></div><div class="list">${ps.filter(p=>D(p).tipo===g).map(p=>`<button class="card item" onclick="go('form:produto','${p.id}')"><div class="l1"><b>${esc(D(p).nome)}</b><b>${fmt(D(p).varejo,"EUR")}</b></div><div class="l2"><span>dealer ${fmt(D(p).dealer,"EUR")}</span><span>margem ${D(p).varejo?fmtN((D(p).varejo-D(p).dealer)/D(p).varejo*100,1):0}%</span></div></button>`).join("")||'<div class="empty">—</div>'}</div>`).join("")}`;
+  ${["Conjunto CCR","Peça"].map(g=>`<div class="sec"><b>${g}</b><i></i></div><div class="list">${prodsOrd().filter(p=>D(p).tipo===g).map(p=>`<button class="card item" onclick="go('form:produto','${p.id}')"><div class="l1"><b><span class="tag" style="margin-right:6px">${esc(pCod(p)||"sem código")}</span>${esc(D(p).nome)}</b><b>${fmt(D(p).varejo,"EUR")}</b></div><div class="l2"><span>dealer ${fmt(D(p).dealer,"EUR")}${D(p).ref?" · "+esc(D(p).ref):""}${D(p).nome_en?`<br><span class="dim">${esc(D(p).nome_en)}</span>`:""}</span><span>margem ${D(p).varejo?fmtN((D(p).varejo-D(p).dealer)/D(p).varejo*100,1):0}%</span></div></button>`).join("")||'<div class="empty">—</div>'}</div>`).join("")}`;
 }
 function viewCustos(){
   const cs=act("custo");
   return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>Custos</h2><button class="chip" onclick="go('form:custo')">+ Custo</button></div>
   <div class="card" style="margin-bottom:10px"><dl class="kv">${["Frete","Imposto","Viagem","Curso CCR","Anuidade","Outro"].map(k=>{const t=sum(cs.filter(c=>D(c).cat===k),c=>D(c).valor_brl);return t?`<dt>${k}</dt><dd>${fmt(t)}</dd>`:""}).join("")}<dt class="tt">Total</dt><dd class="tt">${fmt(sum(cs,c=>D(c).valor_brl))}</dd></dl></div>
   <div class="list">${cs.map(c=>`<button class="card item" onclick="go('form:custo','${c.id}')"><div class="l1"><b>${esc(D(c).cat)}${D(c).desc?" · "+esc(D(c).desc):""}</b><b>${fmt(D(c).valor_brl)}</b></div><div class="l2"><span>${dCurta(c.data)} · ${esc(D(c).pago_por)}${D(c).venda_id?" · "+esc(D(byId(D(c).venda_id)).numero||""):""}</span><span>${D(c).moeda!=="BRL"?fmt(D(c).valor,D(c).moeda):""}</span></div></button>`).join("")||'<div class="empty">Nenhum custo ainda.</div>'}</div>`;
-}
-function viewEstoque(){
-  const ps=act("produto").map(p=>{const comp=sum(act("compra"),c=>sum((D(c).itens||[]).filter(i=>i.produto_id===p.id),i=>i.qtd));const vend=sum(act("venda"),v=>sum((D(v).itens||[]).filter(i=>i.produto_id===p.id),i=>i.qtd));return{p,comp,vend,s:comp-vend}}).filter(x=>x.comp||x.vend);
-  return `${backTo("home")}<h2>Estoque</h2><div class="hint" style="margin:-6px 0 12px">Comprado − vendido, por produto. O kit conta como 1 item; peças avulsas contam separado.</div>
-  <div class="list">${ps.length?ps.map(x=>`<div class="card item"><div class="l1"><b>${esc(D(x.p).nome)}</b><b class="${x.s>0?"ok":x.s<0?"warn":""}">${fmtN(x.s,0)}</b></div><div class="l2"><span>comprado ${fmtN(x.comp,0)} · vendido ${fmtN(x.vend,0)}</span><span>${x.s>0?"em estoque":x.s<0?"falta comprar":"zerado"}</span></div></div>`).join(""):'<div class="empty">Nada comprado ou vendido ainda.</div>'}</div>`;
 }
 function viewPainel(){
   const t=totais();
@@ -978,7 +977,7 @@ async function trocarSenha(){const a=$("#np1").value,b=$("#np2").value;
   if(a.length<6)return ferr("A senha precisa ter pelo menos 6 caracteres.");if(a!==b)return ferr("As duas senhas não são iguais.");
   $("#fsave").disabled=true;const {error}=await sb.auth.updateUser({password:a});
   if(error)return ferr("Não deu certo: "+error.message);toast("Senha alterada ✓");go("home")}
-const TIPOS={nota:"Anotação",compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
+const TIPOS={ajuste:"Ajuste de estoque",nota:"Anotação",compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
 function resumo(r){const d=D(r);switch(r.tipo){
   case"compra":return `${d.numero} · ${d.doc||d.fornecedor} · ${fmt(d.total,"EUR")}`;
   case"pagamento":return `${fmt(d.valor,d.moeda)} → ${D(byId(d.compra_id)).numero||""}`;
@@ -986,8 +985,9 @@ function resumo(r){const d=D(r);switch(r.tipo){
   case"recebimento":return `${fmt(d.valor,d.moeda)} ← ${D(byId(d.venda_id)).numero||""}`;
   case"custo":return `${d.cat} · ${fmt(d.valor,d.moeda)}`;
   case"nota":return d.titulo;
+  case"ajuste":return `${pCod(byId(d.produto_id))} ${d.qtd>0?"+":""}${d.qtd} · ${d.motivo}`;
   case"cliente":return `${d.numero} · ${d.nome}`;case"produto":return d.nome}}
-function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],nota:["form:nota",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
+function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],nota:["form:nota",r.id],ajuste:["form:ajuste",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
 function viewHistorico(){
   let rs=S.rows.filter(r=>r.tipo!=="import").sort((a,b)=>String(b.created_at).localeCompare(a.created_at));
   if(S.hist==="cancelados")rs=rs.filter(r=>r.status==="cancelado");
@@ -1106,6 +1106,149 @@ document.addEventListener("drop",async e=>{if(!temArquivo(e))return;e.preventDef
   toast("Enviando "+fs.length+" arquivo(s)…");
   try{await uploadAnexos(a.id,fs);toast("Anexado ✓");if(S.view.startsWith("form:")){const el=$("#fanx");if(el)el.innerHTML=anexosList(byId(a.id))}else render()}catch(err){toast("Erro: "+err.message)}
 });
+
+/* ===== Catálogo codificado ===== */
+const CATALOGO=[
+ ["S7-KIT","Kit básico S7 (main set ready-to-dive)","Conjunto CCR",4091.80,4990,"Main Set (Ready-to-Dive) – complete","Smartdive · Main Set total"],
+ ["S7-UNIT","S7 CCR com um cabo AK4","Peça",2913.46,3553,"S7 CCR with one AK4 cable","Main #1"],
+ ["S7-CLR","Contrapulmão direito (conectores + OPV)","Peça",594.50,725,"Right Counterlung Assembly with connectors and OPV valve","Main #2"],
+ ["S7-CLL","Contrapulmão esquerdo (conectores + OPV)","Peça",594.50,725,"Left Counterlung Assembly with connectors and OPV valve","Main #3"],
+ ["S7-MAVN","MAV com válvula agulha","Peça",369,450,"MAV with Needle Valve (9/16 ports, adapters, Miflex hose, 90° adapter)","Main #4"],
+ ["S7-INF","Conector de inflador (diluente)","Peça",12.38,15.10,"Inflator Connector for MAV to connect Diluent","Main #5"],
+ ["S7-ADP","Adaptador 3/8–9/16 (oxigênio)","Peça",8.12,9.90,"Adapter 3/8 male – 9/16 male for MAV to connect Oxy","Main #6"],
+ ["S7-CEL","Célula galvânica de O₂","Peça",64.78,79,"Oxygen Galvanic Cell with coax connector","Main #7"],
+ ["S7-CAL","Capa de calibração","Peça",80.36,98,"Calibration Cap for oxygen cells","Acc #1"],
+ ["S7-MAVO","MAV com orifício","Peça",369,450,"MAV with Orifice (9/16 ports, adapters, Miflex hose, 90° adapter, 1st stage plug)","Acc #2"],
+ ["SW-QC4F","Swagelok QC4 fêmea","Peça",81.18,99,"Swagelok QC4 Connector Female for MAV to connect Oxy","Acc #3"],
+ ["SW-QC4M","Swagelok QC4 macho","Peça",81.18,99,"Swagelok QC4 Connector Male","Acc #4"],
+ ["SW-QC6F","Swagelok QC6 fêmea","Peça",81.18,99,"Swagelok QC6 Connector Female for MAV to connect Dil","Acc #5"],
+ ["SW-QC6M","Swagelok QC6 macho","Peça",81.18,99,"Swagelok QC6 Connector Male","Acc #6"],
+ ["SH-PET3","Shearwater Petrel 3 + cabo AK4 18\"","Peça",1176.70,1435,"Shearwater Petrel 3 with AK4 18-inch cable","Acc #7"],
+ ["S7-AK4","Segundo conjunto de cabo AK4","Peça",287,350,"Second AK4 cable assembly","tabela antiga (set/2026)"]
+];
+const CAT_KEY="catalogo-v1";
+const pCod=p=>D(p).codigo||"";
+const byCod=c=>act("produto").find(p=>pCod(p)===c);
+const prodsOrd=()=>act("produto").slice().sort((a,b)=>(pCod(a)||"ZZZ"+D(a).nome).localeCompare(pCod(b)||"ZZZ"+D(b).nome));
+async function migrarCatalogo(){
+  if(S.rows.some(r=>r.tipo==="import"&&D(r).key===CAT_KEY))return;
+  try{
+    for(const [codigo,nome,tipo,dealer,varejo,nome_en,ref] of CATALOGO){
+      const p=act("produto").find(x=>pCod(x)===codigo||D(x).nome===nome);
+      if(p)await saveRow("produto",p.data,{...D(p),codigo,nome_en,ref,tipo:D(p).tipo||tipo},p.id);
+      else await saveRow("produto",today(),{codigo,nome,tipo,dealer,varejo,nome_en,ref});
+    }
+    await saveRow("import",today(),{key:CAT_KEY});await load();
+  }catch(e){}
+}
+/* sugestão de código para itens digitados à mão */
+function sugerir(nome){
+  const n=(nome||"").toLowerCase();
+  if(/s7 kit|unidade do jp/.test(n))return"a:S7-KIT";
+  if(/snap|mangueira|hose|bracket|adapter ap|double ender|ring|camiset|t-?shirt|sofno/.test(n))return"c";
+  if(/canister|main set/.test(n))return /capa|cap/.test(n)?"split":"p:S7-KIT";
+  const qc=n.match(/qc ?(4|6)/);if(qc){if(/female|f[eê]mea|femea/.test(n))return`p:SW-QC${qc[1]}F`;if(/male|macho/.test(n))return`p:SW-QC${qc[1]}M`;return""}
+  if(/petrel/.test(n))return"p:SH-PET3";if(/c[eé]lula|cell/.test(n))return"p:S7-CEL";if(/calibra/.test(n))return"p:S7-CAL";
+  if(/right counter|contrapulm.*dir/.test(n))return"p:S7-CLR";if(/left counter|contrapulm.*esq/.test(n))return"p:S7-CLL";
+  if(/needle|agulha/.test(n))return"p:S7-MAVN";if(/orif/.test(n))return"p:S7-MAVO";if(/inflat|inflador/.test(n))return"p:S7-INF";if(/adapt.*3\/8/.test(n))return"p:S7-ADP";if(/ak4/.test(n))return"p:S7-AK4";
+  return"";
+}
+const USO={estoque:"Estoque (revenda)",ativo:"Ativo da empresa",consumo:"Consumo / uso próprio"};
+const itUso=it=>it.uso||(it.produto_id?"estoque":"");
+const pendente=it=>!it.produto_id&&!it.uso&&(it.nome||"").trim();
+function itensRevisao(){
+  const out=[];
+  ["compra","venda"].forEach(t=>act(t).forEach(r=>(D(r).itens||[]).forEach((it,i)=>{if(!it.produto_id||it.uso&&it.uso!=="estoque")out.push({r,i,it,pend:pendente(it)})})));
+  return out.sort((a,b)=>b.pend-a.pend);
+}
+function optsMapa(sel){
+  const o=prodsOrd();
+  return `<option value="">Escolha…</option>
+  <optgroup label="Estoque (revenda)">${o.map(p=>`<option value="p:${pCod(p)||p.id}" ${sel==="p:"+(pCod(p)||p.id)?"selected":""}>${esc(pCod(p))} · ${esc(D(p).nome)}</option>`).join("")}</optgroup>
+  <optgroup label="Outras opções"><option value="split" ${sel==="split"?"selected":""}>Dividir: S7-KIT + S7-CAL (capa a preço dealer)</option>
+  <option value="a:S7-KIT" ${sel==="a:S7-KIT"?"selected":""}>S7-KIT · ATIVO da empresa (unidade demo)</option>
+  <option value="a:S7-UNIT" ${sel==="a:S7-UNIT"?"selected":""}>S7-UNIT · ATIVO da empresa</option>
+  <option value="c" ${sel==="c"?"selected":""}>Não é estoque · consumo / uso próprio</option></optgroup>`;
+}
+function resolveP(code){return byCod(code)||byId(code)}
+function aplicaMapa(itens,i,val){
+  const it=itens[i],base={...it,nome_orig:it.nome_orig||it.nome};
+  if(val==="c"){itens[i]={...base,uso:"consumo"};return true}
+  if(val==="split"){const kit=byCod("S7-KIT"),cal=byCod("S7-CAL");if(!kit||!cal)return false;const pc=num(D(cal).dealer);
+    itens.splice(i,1,{...base,produto_id:kit.id,nome:"",uso:"estoque",preco:r2(num(it.preco)-pc)},{produto_id:cal.id,nome:"",nome_orig:base.nome_orig,qtd:it.qtd,preco:pc,desc:it.desc||0,uso:"estoque"});return true}
+  const [k,code]=val.split(":");const p=resolveP(code);if(!p)return false;
+  itens[i]={...base,produto_id:p.id,nome:"",uso:k==="a"?"ativo":"estoque"};return true;
+}
+async function salvarMapa(rid,i,val){
+  if(!val)return toast("Escolha uma opção");
+  const r=byId(rid),d={...D(r),itens:(D(r).itens||[]).map(x=>({...x}))};
+  if(!aplicaMapa(d.itens,i,val))return toast("Produto não encontrado no catálogo");
+  await saveRow(r.tipo,r.data,d,r.id);await load();toast("Item revisado ✓");render();
+}
+async function aplicarSugestoes(){
+  const b=$("#bsug");if(b){b.disabled=true;b.textContent="Aplicando…"}
+  const porReg={};
+  itensRevisao().filter(x=>x.pend).forEach(x=>{const s=sugerir(x.it.nome);if(s)(porReg[x.r.id]=porReg[x.r.id]||[]).push({i:x.i,s})});
+  let n=0;
+  for(const [rid,lst] of Object.entries(porReg)){
+    const r=byId(rid),d={...D(r),itens:(D(r).itens||[]).map(x=>({...x}))};
+    lst.sort((a,b)=>b.i-a.i).forEach(({i,s})=>{if(aplicaMapa(d.itens,i,s))n++});
+    await saveRow(r.tipo,r.data,d,r.id);
+  }
+  await load();toast(n+" item(ns) revisado(s) ✓");render();
+}
+async function desfazerMapa(rid,i){
+  const r=byId(rid),d={...D(r),itens:(D(r).itens||[]).map(x=>({...x}))},it=d.itens[i];
+  d.itens[i]={...it,produto_id:"",nome:it.nome_orig||it.nome||itNome(it),uso:undefined};delete d.itens[i].uso;
+  await saveRow(r.tipo,r.data,d,r.id);await load();render();
+}
+function viewRevisar(){
+  const all=itensRevisao(),pend=all.filter(x=>x.pend),feitos=all.filter(x=>!x.pend);
+  const nSug=pend.filter(x=>sugerir(x.it.nome)).length;
+  const lbl=r=>`${r.tipo==="compra"?"📦 "+esc(D(r).numero)+" · "+esc(D(r).doc||D(r).fornecedor||""):"🤿 "+esc(D(r).numero)+" · "+esc(cliNome(D(r).cliente_id))}`;
+  return `${backTo("estoque")}<h2>🔎 Revisar itens</h2>
+  <div class="hint" style="margin:-6px 0 12px">Itens digitados à mão em compras e vendas. Escolha o código do catálogo, ou marque como ativo ou consumo. O app já sugere uma opção; confira e salve.</div>
+  ${pend.length?`<div class="card banner" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>${pend.length}</b> item(ns) pendente(s) · ${nSug} com sugestão</span>${nSug?`<button class="btn" id="bsug" onclick="aplicarSugestoes()">Aplicar todas as sugestões</button>`:""}</div>`:'<div class="card" style="margin-bottom:12px">✅ Nenhum item pendente.</div>'}
+  <div class="list">${pend.map(({r,i,it})=>{const s=sugerir(it.nome);return `<div class="card item" style="cursor:default"><div class="l1"><b>${fmtN(it.qtd,0)}× ${esc(it.nome)}</b><b>${fmt(itemTot(it),r.tipo==="compra"?"EUR":D(r).moeda)}</b></div>
+   <div class="l2"><span>${lbl(r)} · ${dCurta(r.data)}</span><span>${s?"💡 sugestão":"sem sugestão"}</span></div>
+   <div class="rv"><select id="mp_${r.id}_${i}">${optsMapa(s)}</select><button class="btn" onclick="salvarMapa('${r.id}',${i},$('#mp_${r.id}_${i}').value)">Salvar</button></div></div>`}).join("")}</div>
+  ${feitos.length?`<div class="sec"><b>Já classificados (não-estoque / ativo / mapeados)</b><i></i><small>${feitos.length}</small></div>
+  <div class="list">${feitos.map(({r,i,it})=>`<div class="card item" style="cursor:default"><div class="l1"><b>${fmtN(it.qtd,0)}× ${esc(it.produto_id?(pCod(byId(it.produto_id))+" · "+itNome(it)):it.nome)}</b><span class="tag">${esc(USO[itUso(it)]||"")}</span></div><div class="l2"><span>${lbl(r)}${it.nome_orig?" · era “"+esc(it.nome_orig)+"”":""}</span><button class="linkbtn" onclick="desfazerMapa('${r.id}',${i})">desfazer</button></div></div>`).join("")}</div>`:""}`;
+}
+/* Ajuste de estoque */
+FORMS.ajuste={
+  html(){const r=editRow();const d=D(r);F={kind:"ajuste",id:r?.id,data:r?.data||today(),back:"estoque",dir:num(d.qtd)<0?"Saída (−)":"Entrada (+)",motivo:d.motivo||"Contagem física"};
+    return `${backTo("estoque")}<div class="lbl">${r?"Editar":"Novo"} ajuste</div><h2>📦 Ajuste de estoque</h2>
+    ${dateField()}
+    <div class="f"><label>Produto</label><select id="fprod"><option value="">Escolha…</option>${prodsOrd().map(p=>`<option value="${p.id}" ${p.id===d.produto_id?"selected":""}>${esc(pCod(p))} · ${esc(D(p).nome)}</option>`).join("")}</select></div>
+    <div class="f"><label>Movimento</label>${pills("dir",["Entrada (+)","Saída (−)"],F.dir)}</div>
+    <div class="f"><label>Quantidade</label><input inputmode="decimal" id="fqtd" value="${d.qtd?fmtN(Math.abs(d.qtd),0):"1"}"></div>
+    <div class="f"><label>Motivo</label>${pills("motivo",["Contagem física","Avaria / perda","Brinde / demo","Devolução","Outro"],F.motivo)}</div>
+    <div class="f"><label>Observação</label><textarea id="fobs">${esc(d.obs||"")}</textarea></div>
+    ${formActions("ajuste",r?.id)}`},
+  save(){const pid=$("#fprod").value,q=num($("#fqtd").value);if(!pid)return ferr("Escolha o produto.");if(!q)return ferr("Informe a quantidade.");
+    doSave("ajuste",F.data,{produto_id:pid,qtd:F.dir.startsWith("Saída")?-Math.abs(q):Math.abs(q),motivo:F.motivo,obs:$("#fobs").value.trim()},F.id);}
+};
+function estoqueDe(p){
+  let comp=0,ativo=0,vend=0,custo=0,qc=0,res=0;
+  act("compra").forEach(c=>(D(c).itens||[]).forEach(it=>{if(it.produto_id!==p.id)return;const q=num(it.qtd);if(itUso(it)==="ativo")ativo+=q;else if(itUso(it)==="estoque"){comp+=q;custo+=q*num(it.preco);qc+=q}}));
+  act("venda").forEach(v=>(D(v).itens||[]).forEach(it=>{if(it.produto_id!==p.id||itUso(it)!=="estoque")return;const q=num(it.qtd);vend+=q;if(!D(v).entrega)res+=q}));
+  const aj=sum(act("ajuste").filter(a=>D(a).produto_id===p.id),a=>D(a).qtd);
+  const disp=comp+aj-vend;
+  return{comp,ativo,vend,aj,disp,res,cm:qc?custo/qc:num(D(p).dealer)};
+}
+function viewEstoque(){
+  const rows=prodsOrd().map(p=>({p,e:estoqueDe(p)})).filter(x=>x.e.comp||x.e.vend||x.e.aj||x.e.ativo);
+  const pend=itensRevisao().filter(x=>x.pend).length;
+  const valor=sum(rows,x=>Math.max(0,x.e.disp)*x.e.cm);
+  return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>📚 Estoque</h2><span><button class="chip" onclick="go('revisar')">🔎 Revisar itens${pend?` (${pend})`:""}</button> <button class="chip" onclick="go('form:ajuste')">+ Ajuste</button></span></div>
+  ${pend?`<div class="card banner" onclick="go('revisar')" style="cursor:pointer">⚠️ <b>${pend} item(ns) digitado(s) à mão</b> ainda sem código. O estoque só fica certo depois de revisar. <span class="redt">Revisar agora →</span></div>`:""}
+  <div class="nums" style="margin-bottom:12px"><div class="card"><div class="lbl">Valor em estoque</div><b>${fmt(valor,"EUR")}</b><div class="small mut">disponível × custo médio</div></div><div class="card"><div class="lbl">Itens disponíveis</div><b>${fmtN(sum(rows,x=>Math.max(0,x.e.disp)),0)}</b><div class="small mut">${rows.filter(x=>x.e.disp<0).length} código(s) a comprar</div></div></div>
+  <div class="list">${rows.map(({p,e})=>`<div class="card item" style="cursor:default"><div class="l1"><b><span class="tag" style="margin-right:6px">${esc(pCod(p)||"—")}</span>${esc(D(p).nome)}</b><b class="${e.disp>0?"ok":e.disp<0?"warn":""}" style="font-size:18px">${fmtN(e.disp,0)}</b></div>
+   <div class="l2"><span>comprado ${fmtN(e.comp,0)} · vendido ${fmtN(e.vend,0)}${e.res?` (${fmtN(e.res,0)} a entregar)`:""}${e.aj?` · ajuste ${e.aj>0?"+":""}${fmtN(e.aj,0)}`:""}${e.ativo?` · <b style="color:var(--tx)">ativo ${fmtN(e.ativo,0)}</b>`:""}</span><span>${e.disp>0?"disponível":e.disp<0?"falta comprar "+fmtN(-e.disp,0):"zerado"} · c.m. ${fmt(e.cm,"EUR")}</span></div></div>`).join("")||'<div class="empty">Nada comprado ou vendido ainda.</div>'}</div>
+  ${act("ajuste").length?`<div class="sec"><b>Ajustes</b><i></i></div><div class="list">${act("ajuste").map(a=>`<button class="card item" onclick="go('form:ajuste','${a.id}')"><div class="l1"><b>${esc(pCod(byId(D(a).produto_id)))} · ${esc(D(byId(D(a).produto_id)).nome||"")}</b><b>${D(a).qtd>0?"+":""}${fmtN(D(a).qtd,0)}</b></div><div class="l2"><span>${dCurta(a.data)} · ${esc(D(a).motivo)}</span><span>${esc(D(a).obs||"")}</span></div></button>`).join("")}</div>`:""}
+  <div class="hint" style="margin-top:12px">Disponível = comprado + ajustes − vendido. Ativo (ex.: unidade demo do JP) e consumo não entram no disponível. O kit conta como 1 unidade.</div>`;
+}
 
 /* ===== Start ===== */
 $("#brand").onclick=()=>go("home");
