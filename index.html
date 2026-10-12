@@ -152,7 +152,7 @@ aside{display:none}
 .hero h1 span{color:transparent;-webkit-text-stroke:1.4px var(--red)}
 .hero .dash{width:34px;height:2px;background:var(--red);margin:10px 0}
 .hero p{font-size:12.5px;color:var(--mut);max-width:62%;position:relative;z-index:2;line-height:1.55}
-.hero img{position:absolute;right:-34px;bottom:-14px;height:105%;max-height:230px;opacity:.5;object-fit:contain;filter:drop-shadow(0 18px 40px rgba(216,35,42,.35));z-index:1}
+.hero img{mix-blend-mode:lighten;-webkit-mask-image:radial-gradient(ellipse 70% 72% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 70% 72% at 50% 50%,#000 62%,transparent 100%);position:absolute;right:-34px;bottom:-14px;height:105%;max-height:230px;opacity:.5;object-fit:contain;filter:drop-shadow(0 18px 40px rgba(216,35,42,.35));z-index:1}
 .hero .ring{position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(216,35,42,.25);box-shadow:0 0 0 30px rgba(216,35,42,.04),0 0 0 70px rgba(216,35,42,.03)}
 .stages{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .stage{background:linear-gradient(160deg,#151b26,#10141c);border:1px solid var(--line);border-radius:16px;padding:12px 14px;text-align:left;font-family:inherit;color:var(--tx);cursor:pointer;position:relative;overflow:hidden}
@@ -240,7 +240,7 @@ aside{display:none}
   .hero{min-height:260px;padding:34px 36px}
   .hero h1{font-size:46px}
   .hero p{font-size:13.5px;max-width:46%}
-  .hero img{height:135%;max-height:380px;right:4%;bottom:-40px;opacity:1}
+  .hero img{height:108%;max-height:330px;right:5%;bottom:-6px;opacity:1}
   .stages{grid-template-columns:repeat(4,1fr)}
   .stage b{font-size:34px}
   .jrow{display:grid;grid-template-columns:210px minmax(0,1fr) 200px 120px;gap:16px;align-items:center}
@@ -506,7 +506,7 @@ function viewHome(){
     <div class="panel"><div class="ph"><h3>💱 Câmbio hoje</h3></div><div id="fxbox">${fxHtml()}</div></div>`;
   return `${imp?`<div class="card banner"><div class="lbl">Dados iniciais</div><div style="margin:4px 0 10px;font-size:13.5px">Importar o quadro do JP: gastos de 10/08, adiantamentos de 5 clientes, venda do Erme e a compra FP 2026A/20.</div><button class="btn" id="bimp" onclick="importarJP()">Importar agora</button> <button class="chip" onclick="pularImport()">Não, obrigado</button></div>`:""}
   <div class="dash"><div>
-   <div class="hero"><div class="ring"></div><img src="s7.png" alt="S7 CCR">
+   <div class="hero"><div class="ring"></div><img src="s7-v2.jpg" alt="S7 CCR">
     <div class="ey">Mergulho Técnico<br>S7 CCR · Brasil</div>
     <h1>SMALL UNIT.<br><span>DEEP DIVES.</span></h1><div class="dash"></div>
     <p>Rebreather mCCR sidemount · ~4 kg · scrubber axial de 1,9 kg.<br>Compras, vendas e entregas do S7 no Brasil.</p></div>
