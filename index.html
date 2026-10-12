@@ -146,14 +146,16 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 .app{position:relative;z-index:1}
 aside{display:none}
 .topbar{display:none}
-.hero{position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--line);background:radial-gradient(120% 140% at 85% 30%,#3a0d11 0%,#170c10 35%,#0d1118 70%);padding:22px 20px;min-height:170px;margin-bottom:12px}
+.hero{position:relative;overflow:hidden;border-radius:22px;border:1px solid var(--line);background:radial-gradient(60% 90% at 82% 55%,#4a0f14 0%,#1d0c10 45%,transparent 75%),radial-gradient(90% 120% at 0% 0%,#2a0c10 0%,#120c10 40%,#0b0d12 75%);padding:22px 20px;min-height:170px;margin-bottom:12px}
 .hero .ey{font-size:9.5px;letter-spacing:.32em;color:var(--mut);text-transform:uppercase;line-height:1.7}
 .hero h1{font-size:28px;font-weight:900;line-height:1.02;margin:10px 0 8px;letter-spacing:-.01em;position:relative;z-index:2}
 .hero h1 span{color:transparent;-webkit-text-stroke:1.4px var(--red)}
 .hero .dash{width:34px;height:2px;background:var(--red);margin:10px 0}
 .hero p{font-size:12.5px;color:var(--mut);max-width:62%;position:relative;z-index:2;line-height:1.55}
-.hero img{mix-blend-mode:lighten;-webkit-mask-image:radial-gradient(ellipse 70% 72% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(ellipse 70% 72% at 50% 50%,#000 62%,transparent 100%);position:absolute;right:-34px;bottom:-14px;height:105%;max-height:230px;opacity:.5;object-fit:contain;filter:drop-shadow(0 18px 40px rgba(216,35,42,.35));z-index:1}
-.hero .ring{position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(216,35,42,.25);box-shadow:0 0 0 30px rgba(216,35,42,.04),0 0 0 70px rgba(216,35,42,.03)}
+.heroimg{position:absolute;top:0;right:0;bottom:0;width:58%;z-index:1;pointer-events:none}
+.heroimg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(14,11,15,.92) 0%,rgba(14,11,15,.55) 35%,rgba(14,11,15,0) 70%)}
+.heroimg img{position:absolute;right:-6%;bottom:6%;height:86%;width:auto;object-fit:contain;opacity:1;filter:drop-shadow(0 14px 26px rgba(0,0,0,.65)) drop-shadow(0 0 30px rgba(216,35,42,.18))}
+.hero .ring{display:none}
 .stages{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .stage{background:linear-gradient(160deg,#151b26,#10141c);border:1px solid var(--line);border-radius:16px;padding:12px 14px;text-align:left;font-family:inherit;color:var(--tx);cursor:pointer;position:relative;overflow:hidden}
 .stage .h{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
@@ -240,7 +242,9 @@ aside{display:none}
   .hero{min-height:260px;padding:34px 36px}
   .hero h1{font-size:46px}
   .hero p{font-size:13.5px;max-width:46%}
-  .hero img{height:108%;max-height:330px;right:5%;bottom:-6px;opacity:1}
+  .heroimg{width:40%}
+  .heroimg img{opacity:1;right:9%;height:90%;bottom:5%}
+  .heroimg::after{display:none}
   .stages{grid-template-columns:repeat(4,1fr)}
   .stage b{font-size:34px}
   .jrow{display:grid;grid-template-columns:210px minmax(0,1fr) 200px 120px;gap:16px;align-items:center}
@@ -506,7 +510,7 @@ function viewHome(){
     <div class="panel"><div class="ph"><h3>💱 Câmbio hoje</h3></div><div id="fxbox">${fxHtml()}</div></div>`;
   return `${imp?`<div class="card banner"><div class="lbl">Dados iniciais</div><div style="margin:4px 0 10px;font-size:13.5px">Importar o quadro do JP: gastos de 10/08, adiantamentos de 5 clientes, venda do Erme e a compra FP 2026A/20.</div><button class="btn" id="bimp" onclick="importarJP()">Importar agora</button> <button class="chip" onclick="pularImport()">Não, obrigado</button></div>`:""}
   <div class="dash"><div>
-   <div class="hero"><div class="ring"></div><img src="s7-v2.jpg" alt="S7 CCR">
+   <div class="hero"><div class="ring"></div><div class="heroimg"><img src="s7-v4.png" alt="S7 CCR"></div>
     <div class="ey">Mergulho Técnico<br>S7 CCR · Brasil</div>
     <h1>SMALL UNIT.<br><span>DEEP DIVES.</span></h1><div class="dash"></div>
     <p>Rebreather mCCR sidemount · ~4 kg · scrubber axial de 1,9 kg.<br>Compras, vendas e entregas do S7 no Brasil.</p></div>
