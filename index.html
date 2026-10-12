@@ -396,8 +396,10 @@ async function saveRow(tipo,data,dados,id){
   const {data:ins,error}=await sb.from(T).insert({tipo,data,dados}).select().single();if(error)throw error;return ins.id;
 }
 async function setStatus(id,status){
-  const {error}=await sb.from(T).update({status,canceled_at:status==="cancelado"?new Date().toISOString():null}).eq("id",id);
+  const upd={status,canceled_at:status==="cancelado"?new Date().toISOString():null};
+  const {error}=await sb.from(T).update(upd).eq("id",id);
   if(error){toast("Erro: "+error.message);return}
+  const pid=D(byId(id)).par_id;if(pid)await sb.from(T).update(upd).eq("id",pid);
   await load();
 }
 
@@ -643,6 +645,11 @@ FORMS.compra={
 /* Pagamento */
 FORMS.pagamento={
   html(){const r=editRow();const d=D(r);const pre=S.param?.compra_id;
+    if(r&&d.par_id){F={kind:"pag",id:r.id,back:"compra",backParam:d.compra_id};const rc=byId(d.par_id);
+      return `${backTo("compras")}<div class="lbl">Pagamento S7</div><h2>💶 Pago pelo cliente direto à Smartdive</h2>
+      <div class="card"><dl class="kv"><dt>Valor</dt><dd>${fmt(d.valor,d.moeda)}</dd><dt>Abate da compra</dt><dd>${fmt(d.valor_eur,"EUR")}</dd><dt>Data</dt><dd>${dCurta(r.data)}</dd><dt>Forma</dt><dd>${esc(d.forma||"")}</dd></dl>
+      <div class="hint">Este pagamento foi criado junto com o recebimento ${esc(D(byId(D(rc).venda_id)).numero||"")} (${esc(cliNome(D(byId(D(rc).venda_id)).cliente_id))}). Para editar ou cancelar, abra o recebimento: os dois andam juntos.</div></div>
+      <div class="actions"><button class="btn" onclick="go('form:recebimento','${d.par_id}')">Abrir recebimento</button><button class="btn ghost" onclick="history_back()">Fechar</button></div>`}
     const compras=act("compra");
     F={kind:"pag",id:r?.id,data:r?.data||today(),compra_id:d.compra_id||pre||(compras.find(c=>compraSaldo(c)>0.01)?.id)||"",moeda:d.moeda||"EUR",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||S.me,forma:d.forma||"Wire",obs:d.obs||"",usesCot:true};
     F.back=pre||d.compra_id?"compra":"home";F.backParam=pre||d.compra_id;
@@ -720,7 +727,7 @@ FORMS.entrega={
 FORMS.recebimento={
   html(){const r=editRow();const d=D(r);const pre=S.param?.venda_id;
     const vendas=act("venda");
-    F={kind:"rec",id:r?.id,data:r?.data||today(),venda_id:d.venda_id||pre||(vendas.find(v=>vendaSaldo(v)>0.01)?.id)||"",moeda:d.moeda||"",valor:d.valor||0,cot:d.cot||null,recebido_por:d.recebido_por||S.me,forma:d.forma||"Zelle",obs:d.obs||"",usesCot:true,abate:r?num(d.valor_venda):null,abateMan:!!d.abate_manual};
+    F={kind:"rec",id:r?.id,data:r?.data||today(),venda_id:d.venda_id||pre||(vendas.find(v=>vendaSaldo(v)>0.01)?.id)||"",moeda:d.moeda||"",valor:d.valor||0,cot:d.cot||null,recebido_por:d.recebido_por||S.me,forma:d.forma||"Zelle",obs:d.obs||"",usesCot:true,abate:r?num(d.valor_venda):null,abateMan:!!d.abate_manual,compra_id:d.compra_id||""};
     F.back=pre||d.venda_id?"venda":"home";F.backParam=pre||d.venda_id;
     if(!F.moeda)F.moeda=D(byId(F.venda_id)).moeda||"USD";
     F.onCot=()=>{const e=$("#fabat");if(!e)return;const v=byId($("#fvend")?.value||F.venda_id);
@@ -730,24 +737,33 @@ FORMS.recebimento={
       $("#fabw").hidden=F.moeda===mv;$("#fabl").textContent=`Quanto abate na venda (${SYM[mv]})`;
       const av=F.moeda===mv?F.valor:F.abate;
       const saldo=vendaSaldo(v)+(r&&D(r).venda_id===v.id?num(d.valor_venda):0);
-      e.innerHTML=`Equivale a <b>${fmt(brl)}</b> · abate <b>${fmt(av,mv)}</b> da venda · saldo após: <b>${fmt(saldo-av,mv)}</b>`};
-    F.onPick=n=>{if(n==="moeda"){F.abateMan=false;F.onCot()}};
+      e.innerHTML=`Equivale a <b>${fmt(brl)}</b> · abate <b>${fmt(av,mv)}</b> da venda · saldo após: <b>${fmt(saldo-av,mv)}</b>`;
+      const c=byId($("#fcomp")?.value);
+      if(F.recebido_por===DIRETO&&c){const eur=conv(F.valor,F.moeda,"EUR",F.cot),par=D(r).par_id?byId(D(r).par_id):null,sc=compraSaldo(c)+(par&&D(par).compra_id===c.id?num(D(par).valor_eur):0);
+        e.innerHTML+=`<br>↳ e abate <b>${fmt(eur,"EUR")}</b> da compra ${esc(D(c).numero)} na Smartdive · saldo após: <b>${fmt(sc-eur,"EUR")}</b>`}};
+    F.onPick=n=>{if(n==="moeda"){F.abateMan=false;F.onCot()}if(n==="recebido_por"){$("#fs7").hidden=F.recebido_por!==DIRETO;F.onCot()}};
+    const vSel=byId(F.venda_id),cands=act("compra").slice().sort((a,b)=>(D(b).venda_id===F.venda_id)-(D(a).venda_id===F.venda_id)||compraSaldo(b)-compraSaldo(a));
+    if(!F.compra_id)F.compra_id=(cands.find(c=>D(c).venda_id===F.venda_id&&compraSaldo(c)>0.01)||cands.find(c=>compraSaldo(c)>0.01))?.id||"";
     return `${backTo(F.back==="venda"?"vendas":"home")}<div class="lbl">${r?"Editar":"Novo"} recebimento</div><h2>💰 Recebimento</h2>
     ${dateField()}
     <div class="f"><label>De qual venda / reserva?</label><select id="fvend" onchange="F.venda_id=this.value;F.abateMan=false;F.onCot()">${vendas.length?"":'<option value="">Nenhuma venda lançada</option>'}${vendas.map(v=>`<option value="${v.id}" ${v.id===F.venda_id?"selected":""}>${esc(D(v).numero)} · ${esc(cliNome(D(v).cliente_id))} · ${D(v).etapa==="Reserva"?"reserva":"saldo "+fmt(vendaSaldo(v),D(v).moeda)}</option>`).join("")}</select></div>
     ${moneyFields()}
     <div class="f" id="fabw" hidden><label id="fabl">Quanto abate na venda</label><input inputmode="decimal" id="fab" value="${fmtIn(F.abate)}" oninput="F.abate=num(this.value);F.abateMan=true;F.onCot()"><div class="hint">Calculado pelo câmbio do dia. Altere se vocês combinaram outra taxa com o cliente (ex.: € 1 = US$ 1,13).</div></div>
     <div class="cot" id="fabat" style="border-style:solid"></div>
-    <div class="f"><label>Quem recebeu?</label>${pills("recebido_por",SOCIOS,F.recebido_por)}</div>
-    <div class="f"><label>Forma</label>${pills("forma",["Zelle","Wire","Pix","Dinheiro","Outro"],F.forma)}</div>
+    <div class="f"><label>Quem recebeu?</label>${pills("recebido_por",[...SOCIOS,DIRETO],F.recebido_por)}<div class="hint">“${DIRETO}” = o cliente pagou direto à Smartdive (Ivan). O valor abate a venda <b>e</b> a compra, sem passar pelos sócios.</div></div>
+    <div class="f" id="fs7" ${F.recebido_por===DIRETO?"":"hidden"}><label>Abate de qual compra Smartdive?</label><select id="fcomp" onchange="F.onCot()">${cands.length?"":'<option value="">Nenhuma compra lançada — lance a compra primeiro</option>'}${cands.map(c=>`<option value="${c.id}" ${c.id===F.compra_id?"selected":""}>${esc(D(c).numero)} · ${esc(D(c).doc||D(c).fornecedor||"")} · falta ${fmt(compraSaldo(c),"EUR")}${D(c).venda_id===F.venda_id?" · desta venda":""}</option>`).join("")}</select></div>
+    <div class="f"><label>Forma</label>${pills("forma",["Zelle","Wire","Pix","PayPal","Dinheiro","Outro"],F.forma)}</div>
     <div class="f"><label>Observação</label><textarea id="fobs">${esc(F.obs)}</textarea></div>
     ${formActions("recebimento",r?.id)}`},
   after(){initCot()},
   save(){const vid=$("#fvend").value;if(!vid)return ferr("Escolha a venda.");if(!F.valor)return ferr("Informe o valor.");if(!cotOk(F.cot))return ferr("Sem cotação: toque em “ajustar taxa” e informe.");
     const mv=D(byId(vid)).moeda;
     const vv=F.moeda===mv?F.valor:(F.abateMan?F.abate:r2(conv(F.valor,F.moeda,mv,F.cot)));
-    const dados={venda_id:vid,moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),valor_venda:vv,abate_manual:F.moeda!==mv&&F.abateMan,recebido_por:F.recebido_por,forma:F.forma,obs:$("#fobs").value.trim()};
-    F.back="venda";F.backParam=vid;doSave("recebimento",F.data,dados,F.id);}
+    const direto=F.recebido_por===DIRETO,cid=direto?$("#fcomp").value:"";
+    if(direto&&!cid)return ferr("Escolha a compra da Smartdive que este pagamento abate (ou lance a compra primeiro).");
+    const r=editRow();
+    const dados={venda_id:vid,moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),valor_venda:vv,abate_manual:F.moeda!==mv&&F.abateMan,recebido_por:F.recebido_por,forma:F.forma,obs:$("#fobs").value.trim(),compra_id:cid,par_id:D(r).par_id||""};
+    F.back="venda";F.backParam=vid;doSave("recebimento",F.data,dados,F.id,async nid=>{await syncPar(nid);history_back()});}
 };
 /* Custo */
 FORMS.custo={
@@ -1325,6 +1341,23 @@ function imprimirRelatorio(){
   if(img&&!img.complete)img.onload=img.onerror=go2;else setTimeout(go2,50);
 }
 
+/* recebimento pago direto à Smartdive → cria/atualiza o pagamento par */
+const DIRETO="Direto à S7";
+async function syncPar(recId){
+  const rec=byId(recId),d=D(rec),par=d.par_id?byId(d.par_id):null;
+  try{
+    if(d.recebido_por===DIRETO&&d.compra_id){
+      const v=byId(d.venda_id);
+      const pd={compra_id:d.compra_id,moeda:d.moeda,valor:d.valor,cot:d.cot,valor_brl:d.valor_brl,valor_eur:r2(conv(d.valor,d.moeda,"EUR",d.cot)),pago_por:"Cliente (direto)",forma:d.forma,obs:`Pago por ${cliNome(D(v).cliente_id)} direto à Smartdive (venda ${D(v).numero})${d.obs?" · "+d.obs:""}`,par_id:recId,anexos:D(par).anexos};
+      if(par){await saveRow("pagamento",rec.data,pd,par.id);if(par.status==="cancelado")await sb.from(T).update({status:"ativo",canceled_at:null}).eq("id",par.id)}
+      else{const pid=await saveRow("pagamento",rec.data,pd);await saveRow("recebimento",rec.data,{...d,par_id:pid},recId)}
+    }else if(par){
+      await sb.from(T).update({status:"cancelado",canceled_at:new Date().toISOString()}).eq("id",par.id);
+      await saveRow("recebimento",rec.data,{...d,par_id:""},recId);
+    }
+    await load();
+  }catch(e){toast("Atenção: o pagamento à Smartdive não foi atualizado: "+e.message)}
+}
 /* ===== Start ===== */
 $("#brand").onclick=()=>go("home");
 (async()=>{
