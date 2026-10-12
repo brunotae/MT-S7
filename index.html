@@ -298,6 +298,7 @@ aside{display:none}
 const SB_URL="https://agdqlnaedojcgivwluty.supabase.co";
 const SB_KEY="sb_publishable_PKGxxrfpduzI7xY1_DWQyQ_cnJA9isP";
 const T="mts7_registros";
+const RECOV=/type=recovery/.test(location.hash),HASHERR=(location.hash.match(/error_description=([^&]+)/)||[])[1];
 const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"mts7-auth"}});
 const SOCIOS=["Tae","Johnny"];
 const MOEDAS=["EUR","USD","BRL"];
@@ -342,7 +343,7 @@ const dLonga=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR",{weekday:"long
 function toast(t){const e=$("#toast");e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2400)}
 
 /* ===== State ===== */
-let S={user:null,me:"Tae",rows:[],view:"home",param:null,hist:"todos"};
+let S={recov:RECOV,membros:[],user:null,me:"Tae",rows:[],view:"home",param:null,hist:"todos"};
 let F=null; // form state
 const act=t=>S.rows.filter(r=>r.tipo===t&&r.status!=="cancelado");
 const byId=id=>S.rows.find(r=>r.id===id);
@@ -441,10 +442,13 @@ function viewLogin(){return `<div class="login card">
   <div class="f"><label>E-mail</label><input id="em" type="email" autocomplete="username"></div>
   <div class="f"><label>Senha</label><input id="pw" type="password" autocomplete="current-password"></div>
   <div class="actions"><button class="btn" onclick="doLogin()">Entrar</button><button class="btn ghost" onclick="doSignup()">Criar conta</button></div>
-  <div class="hint">Use o mesmo e-mail e senha da Agenda.</div><div class="err" id="lerr"></div></div>`}
+  <div class="hint">Use o mesmo e-mail e senha da Agenda. · <button type="button" class="linkbtn" onclick="esqueci()">Esqueci minha senha</button></div><div class="err" id="lerr">${HASHERR?"O link de recuperação expirou ou já foi usado. Peça outro em “Esqueci minha senha”.":""}</div></div>`}
+async function esqueci(){const em=$("#em").value.trim(),e=$("#lerr");if(!/.+@.+\..+/.test(em)){e.textContent="Digite seu e-mail no campo acima e toque de novo em “Esqueci minha senha”.";return}
+  e.textContent="Enviando…";const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+  e.innerHTML=error?`Não consegui enviar o e-mail (${esc(error.message)}). Peça ao outro sócio para criar uma senha provisória para você em <b>Conta</b>.`:`<span class="ok">Pronto. Se o e-mail estiver cadastrado, chega um link em alguns minutos (olhe o spam). Toque no link e crie a senha nova.</span><br>Não chegou? Peça ao outro sócio: <b>Conta → Senha provisória para o sócio</b>.`}
 async function doLogin(){const {data,error}=await sb.auth.signInWithPassword({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}await afterAuth(data.session)}
 async function doSignup(){const {data,error}=await sb.auth.signUp({email:$("#em").value.trim(),password:$("#pw").value});if(error){$("#lerr").textContent=error.message;return}if(data.session)await afterAuth(data.session);else $("#lerr").textContent="Conta criada. Agora toque em Entrar."}
-async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos();await migrarCatalogo();await seedNotas()}go("home")}
+async function afterAuth(session){S.user=session?.user||null;if(S.user){try{const {data}=await sb.from("mts7_membros").select("*");S.membros=data||[];const m=(data||[]).find(x=>String(x.email).toLowerCase()===String(S.user.email).toLowerCase());if(m&&m.nome)S.me=m.nome}catch(e){}await load();await seedProdutos();await migrarCatalogo();await seedNotas()}go(S.recov?"senha":"home")}
 async function sair(){await sb.auth.signOut();S.user=null;S.rows=[];render()}
 
 /* ===== Home ===== */
@@ -1037,13 +1041,24 @@ function viewSocio(){
 }
 function viewSenha(){return `${backTo("home")}<div class="lbl">Minha conta</div><h2>🔑 Trocar senha</h2>
   <div class="hint" style="margin:-6px 0 8px">Conta: <b>${esc(S.user?.email)}</b></div>
+  ${S.recov?`<div class="card banner" style="margin-bottom:10px">🔓 Você entrou pelo link de recuperação. Crie a senha nova abaixo.</div>`:""}
   <div class="f"><label>Nova senha (mínimo 6 caracteres)</label><input type="password" id="np1" autocomplete="new-password"></div>
   <div class="f"><label>Repita a nova senha</label><input type="password" id="np2" autocomplete="new-password"></div>
-  <div class="err" id="ferr"></div><div class="actions"><button class="btn" id="fsave" onclick="trocarSenha()">Salvar nova senha</button><button class="btn ghost" onclick="go('home')">Fechar</button></div>`}
+  <div class="err" id="ferr"></div><div class="actions"><button class="btn" id="fsave" onclick="trocarSenha()">Salvar nova senha</button><button class="btn ghost" onclick="go('home')">Fechar</button></div>
+  ${(()=>{const outros=(S.membros||[]).filter(m=>String(m.email).toLowerCase()!==String(S.user?.email).toLowerCase());return `<div class="sec"><b>Senha provisória para o sócio</b><i></i></div>
+  <div class="hint" style="margin:-4px 0 8px">Se o sócio esqueceu a senha, crie uma provisória aqui e mande para ele. Depois ele entra e troca nesta mesma tela.</div>
+  ${outros.length?`<div class="f"><label>Sócio</label><select id="rsoc">${outros.map(m=>`<option value="${esc(m.email)}">${esc(m.nome||"")} · ${esc(m.email)}</option>`).join("")}</select></div>
+  <div class="f"><label>Senha provisória (mínimo 6)</label><input id="rpw" autocomplete="off" value="${"MT"+Math.floor(100000+Math.random()*900000)}"></div>
+  <div class="err" id="rerr"></div><div class="actions"><button class="btn ghost" id="rbtn" onclick="resetSocio()">Definir senha provisória</button></div>`:`<div class="empty">Nenhum outro sócio visível. Rode o arquivo <b>reset_senha.sql</b> no Supabase.</div>`}`})()}`}
+async function resetSocio(){const alvo=$("#rsoc").value,nova=$("#rpw").value.trim(),e=$("#rerr");if(nova.length<6){e.textContent="Mínimo 6 caracteres.";return}
+  $("#rbtn").disabled=true;e.textContent="";const {data,error}=await sb.rpc("mts7_reset_socio",{alvo,nova});$("#rbtn").disabled=false;
+  if(error){e.textContent=/function|schema cache/i.test(error.message)?"Falta rodar o arquivo reset_senha.sql no Supabase (uma vez).":"Erro: "+error.message;return}
+  if(data==="sem_conta"){e.innerHTML="Esse sócio ainda não criou a conta. Peça para ele abrir o site, digitar o e-mail e uma senha e tocar em <b>Criar conta</b>.";return}
+  e.innerHTML=`<span class="ok">Feito ✓ Mande para ele: e-mail <b>${esc(alvo)}</b> · senha <b>${esc(nova)}</b>. Ao entrar, ele troca a senha aqui em Conta.</span> <button class="chip" onclick="copiar('MT-S7 · https://brunotae.github.io/MT-S7/\nE-mail: ${esc(alvo)}\nSenha provisória: ${esc(nova)}\nDepois de entrar, troque em Conta → Trocar senha.')">📋 Copiar mensagem</button>`}
 async function trocarSenha(){const a=$("#np1").value,b=$("#np2").value;
   if(a.length<6)return ferr("A senha precisa ter pelo menos 6 caracteres.");if(a!==b)return ferr("As duas senhas não são iguais.");
   $("#fsave").disabled=true;const {error}=await sb.auth.updateUser({password:a});
-  if(error)return ferr("Não deu certo: "+error.message);toast("Senha alterada ✓");go("home")}
+  if(error)return ferr("Não deu certo: "+error.message);S.recov=false;if(location.hash)history.replaceState(null,"",location.pathname);toast("Senha alterada ✓");go("home")}
 const TIPOS={transferencia:"Acerto / transferência",ajuste:"Ajuste de estoque",nota:"Anotação",compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
 function resumo(r){const d=D(r);switch(r.tipo){
   case"compra":return `${d.numero} · ${d.doc||d.fornecedor} · ${fmt(d.total,"EUR")}`;
@@ -1507,7 +1522,7 @@ $("#brand").onclick=()=>go("home");
 (async()=>{
   const {data}=await sb.auth.getSession();
   if(data?.session){await afterAuth(data.session)}else render();
-  sb.auth.onAuthStateChange((_e,session)=>{if(!session&&S.user){S.user=null;render()}});
+  sb.auth.onAuthStateChange((ev,session)=>{if(ev==="PASSWORD_RECOVERY"){S.recov=true;if(S.user)go("senha");return}if(!session&&S.user){S.user=null;render()}});
   const refresh=async()=>{if(!S.user||document.hidden)return;if(S.view.startsWith("form"))return;if(await load())render()};
   document.addEventListener("visibilitychange",refresh);setInterval(refresh,60000);
 })();
