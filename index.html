@@ -116,6 +116,21 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 #drop.no{border-color:#5d636e}
 .rv{display:flex;gap:8px;margin-top:10px;align-items:center}.rv select{flex:1;min-width:0}.rv .btn{min-height:46px;padding:10px 18px}
 #printArea{display:none}
+.mvtabs{margin:4px 0 14px}
+.mvf .pills .pill{min-height:38px;padding:7px 13px;font-size:13px}
+.mvf2{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.mvf2 select{flex:1 1 220px;min-width:0}.mvf2 input[type=date]{flex:1 1 140px;min-width:0;width:auto}
+.nums.n3{grid-template-columns:1fr 1fr}.nums.n3>div:last-child{grid-column:1/-1}
+.mvl{background:linear-gradient(160deg,rgba(23,29,41,.92),rgba(17,22,31,.92));border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.mvr{display:grid;grid-template-columns:44px minmax(0,1fr) auto;grid-template-areas:"d w v" "d tg v";gap:2px 12px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:12px 14px;color:var(--tx);font-family:inherit;cursor:pointer}
+.mvr:last-child{border-bottom:0}.mvr:hover{background:rgba(255,255,255,.03)}
+.mvr .d{grid-area:d;text-align:center;font-size:10.5px;color:var(--dim);line-height:1.1;text-transform:uppercase}.mvr .d b{display:block;font-size:18px;color:var(--tx)}
+.mvr .w{grid-area:w;min-width:0}.mvr .ft{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mvr .ft b{font-weight:600}.mvr .ar{color:var(--red2);margin:0 6px}
+.mvr .o{font-size:12px;color:var(--mut);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvr .tg{grid-area:tg}.mvr .v{grid-area:v;text-align:right;white-space:nowrap}.mvr .v b{font-size:14.5px;font-weight:600}.mvr .v small{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+.tag.dim{color:var(--dim)}
+@media (min-width:1024px){.nums.n3{grid-template-columns:repeat(3,1fr)}.nums.n3>div:last-child{grid-column:auto}
+ .mvr{grid-template-columns:52px minmax(0,1fr) 150px 170px;grid-template-areas:"d w tg v"}.mvr .tg{text-align:center}}
 @media print{
   @page{size:A4 portrait;margin:12mm 10mm}
   html,body{background:#fff!important;color:#111!important;font-size:10px}
@@ -413,9 +428,9 @@ const backTo=v=>`<div class="top"><button class="back" onclick="go('${v}')">← 
 function render(){
   const m=$("#main");renderShell();
   if(!S.user){m.innerHTML=viewLogin();m.className="";return}
-  const [v,sub]=S.view.split(":");m.className=(v==="home"||v==="jornada")?"":"narrow";
+  const [v,sub]=S.view.split(":");m.className=(v==="home"||v==="jornada"||v==="mov")?"":"narrow";
   if(v==="home")setTimeout(loadFx,0);
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas,revisar:viewRevisar};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas,revisar:viewRevisar,mov:viewMov};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
   m.innerHTML=(V[v]||viewHome)();
 }
@@ -441,7 +456,7 @@ function totais(){
   const vendasBRL=sum(vendas,vendaBRL),comprasBRL=sum(compras,compraBRL),custosBRL=sum(custos,c=>D(c).valor_brl);
   const recebido=sum(act("recebimento"),x=>D(x).valor_brl),pago=sum(act("pagamento"),x=>D(x).valor_brl);
   const lucro=vendasBRL-comprasBRL-custosBRL;
-  return{aReceber,aPagarEur,vendasBRL,comprasBRL,custosBRL,recebido,pago,lucro,adiant,nRes:todas.length-vendas.length,caixa:recebido-pago-custosBRL,pct:vendasBRL?lucro/vendasBRL:0};
+  return{aReceber,aPagarEur,vendasBRL,comprasBRL,custosBRL,recebido,pago,lucro,adiant,nRes:todas.length-vendas.length,caixa:recebido-pago-custosBRL+transfExt(),pct:vendasBRL?lucro/vendasBRL:0};
 }
 /* ===== v5: jornada + dashboard ===== */
 const PASSOS=["Reserva","Config.","Pedido","Pago S7","Entregue","Quitado"];
@@ -489,12 +504,12 @@ function proximasAcoes(){
   SOCIOS.forEach(n=>{const l=socioLiq(n);if(l<-0.01)a.push({t:`Reembolsar <b>${n}</b> ${fmt(-l)}`,c:"y",go:`go('socio','${n}')`,o:9})});
   return a.sort((x,y)=>x.o-y.o);
 }
-function socioLiq(n){const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return recebeu-colocou}
+function socioLiq(n){const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return recebeu-colocou+tNet(n)}
 let FXHOJE=null;
 async function loadFx(){if(FXHOJE)return;const c=await fetchCot(today());if(c){FXHOJE=c;const e=$("#fxbox");if(e)e.innerHTML=fxHtml()}}
 const fxHtml=()=>FXHOJE?`<div class="fx"><div><span class="small mut">€ 1</span><b>R$ ${fmtN(FXHOJE.EUR,2)}</b></div><div><span class="small mut">US$ 1</span><b>R$ ${fmtN(FXHOJE.USD,2)}</b></div></div><div class="hint">€ 1 = US$ ${fmtN(FXHOJE.EUR/FXHOJE.USD,4)} · ${esc(FXHOJE.fonte)}</div>`:'<div class="hint">Buscando cotação…</div>';
 function recentes(){
-  const icon={compra:"📦",pagamento:"💶",venda:"🤿",recebimento:"💰",custo:"🧾"};
+  const icon={compra:"📦",pagamento:"💶",venda:"🤿",recebimento:"💰",custo:"🧾",transferencia:"⇄"};
   return S.rows.filter(r=>icon[r.tipo]&&r.status!=="cancelado").sort((a,b)=>String(b.data).localeCompare(a.data)||String(b.created_at).localeCompare(a.created_at)).slice(0,7).map(r=>{const dt=new Date(r.data+"T12:00");
     return `<div class="r" onclick='abrir(byId("${r.id}"))'><div class="d"><b>${dt.getDate()}</b>${dt.toLocaleDateString("pt-BR",{month:"short"}).replace(".","")}</div><div>${icon[r.tipo]} ${esc(resumo(r))}</div></div>`}).join("")||'<div class="empty">Nada ainda.</div>';
 }
@@ -523,7 +538,7 @@ function viewHome(){
    <div class="mobile-only">${quick}<div class="chips" style="margin:12px 0">${NAV.filter(n=>n[0]!=="home").map(([k,ic,pt])=>`<button class="chip" onclick="go('${k}'${k==="socio"?",'"+S.me+"'":""})">${ic} ${pt}</button>`).join("")}<button class="chip" onclick="go('form:custo')">+ Custo</button></div></div>
    ${jornadaPanel(false)}
    <div class="bottom">
-    <div class="panel"><div class="ph"><h3>🕘 Últimos lançamentos</h3><button class="lnk" onclick="go('historico')">ver tudo ›</button></div><div class="tl">${recentes()}</div></div>
+    <div class="panel"><div class="ph"><h3>🕘 Últimos lançamentos</h3><button class="lnk" onclick="go('mov')">movimentação ›</button></div><div class="tl">${recentes()}</div></div>
     <div class="panel"><div class="ph"><h3>📦 Compras Smartdive</h3><button class="lnk" onclick="go('compras')">ver tudo ›</button></div><div class="tl">${act("compra").slice(0,5).map(c=>{const s=compraSaldo(c);return `<div class="r" onclick="go('compra','${c.id}')"><div class="d"><b>${new Date(c.data+"T12:00").getDate()}</b>${new Date(c.data+"T12:00").toLocaleDateString("pt-BR",{month:"short"}).replace(".","")}</div><div style="flex:1">${esc(D(c).doc||D(c).numero)}<div class="small mut">${fmt(compraTotal(c),"EUR")}</div></div>${s>0.01?st("falta "+fmt(s,"EUR"),"warn"):st("paga","ok")}</div>`}).join("")||'<div class="empty">Nenhuma compra.</div>'}</div></div>
     <div class="panel"><div class="ph"><h3>💼 Financeiro · R$</h3><button class="lnk" onclick="go('painel')">painel ›</button></div>
      <div class="fin">
@@ -543,12 +558,12 @@ function viewHome(){
   <div class="foot mobile-only"><span>Conectado como <b>${esc(S.me)}</b></span><span><button class="chip" onclick="go('senha')">🔑 Senha</button> <button class="chip" onclick="sair()">Sair</button></span></div>`;
 }
 function viewJornada(){return `${backTo("home")}${jornadaPanel(true)}`}
-const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["notas","📒","Anotações","Notes & info"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
+const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["mov","💸","Movimentação","Money & stock flow"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["notas","📒","Anotações","Notes & info"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
 function renderShell(){
   const side=$("#side"),top=$("#topbar");if(!S.user){side.innerHTML="";top.innerHTML="";return}
   const v=S.view.split(":")[0];
   side.innerHTML=`<div class="lg" onclick="go('home')"><img src="logo.png" alt=""><b>MT-<span>S7</span></b><small>S7 CCR · Brasil</small></div>
-   <nav>${NAV.map(([k,ic,pt,en])=>`<button class="${v===k||(k==="vendas"&&v==="venda")||(k==="compras"&&v==="compra")||(k==="estoque"&&v==="revisar")?"on":""}" onclick="go('${k}'${k==="socio"?",'"+S.me+"'":""})"><span class="ni">${ic}</span><span><b>${pt}</b><small>${en}</small></span></button>`).join("")}</nav>
+   <nav>${NAV.map(([k,ic,pt,en])=>`<button class="${v===k||(k==="vendas"&&v==="venda")||(k==="compras"&&v==="compra")||(k==="estoque"&&v==="revisar")||(k==="mov"&&S.view==="form:transferencia")?"on":""}" onclick="go('${k}'${k==="socio"?",'"+S.me+"'":""})"><span class="ni">${ic}</span><span><b>${pt}</b><small>${en}</small></span></button>`).join("")}</nav>
    <div class="me">Conectado como<br><b style="color:var(--tx)">${esc(S.me)}</b> · ${esc(S.user.email)}<div style="margin-top:8px"><button class="chip" onclick="sair()">Sair</button></div></div>`;
   top.innerHTML=`<input class="search" placeholder="🔍 Buscar cliente ou venda…" value="${esc(S.q||"")}" oninput="S.q=this.value;if(S.view!=='home'&&S.view!=='jornada'){go('jornada')}else{const l=$('#jlist');if(l){render();const i=$('#topbar .search');i.focus();i.setSelectionRange(i.value.length,i.value.length)}}"><button class="btn" style="min-height:40px;padding:8px 16px;font-size:13px" onclick="go('form:venda')">+ Venda</button><div class="who"><div class="av" style="width:32px;height:32px;font-size:12px">${esc(ini(S.me))}</div><div><b>${esc(S.me)}</b><div class="small mut">Sócio</div></div></div>`;
 }
@@ -669,7 +684,7 @@ FORMS.pagamento={
     ${moneyFields()}
     <div class="cot" id="fabat" style="border-style:solid"></div>
     <div class="f"><label>Quem pagou?</label>${pills("pago_por",SOCIOS,F.pago_por)}</div>
-    <div class="f"><label>Forma</label>${pills("forma",["Wire","Zelle","Pix","Cartão","Outro"],F.forma)}</div>
+    <div class="f"><label>Forma</label>${pills("forma",["Wire","Zelle","Pix","Cartão","Compensação","Outro"],F.forma)}</div>
     <div class="f"><label>Observação</label><textarea id="fobs">${esc(F.obs)}</textarea></div>
     ${formActions("pagamento",r?.id)}`},
   after(){initCot()},
@@ -756,7 +771,7 @@ FORMS.recebimento={
     <div class="cot" id="fabat" style="border-style:solid"></div>
     <div class="f"><label>Quem recebeu?</label>${pills("recebido_por",[...SOCIOS,DIRETO],F.recebido_por)}<div class="hint">“${DIRETO}” = o cliente pagou direto à Smartdive (Ivan). O valor abate a venda <b>e</b> a compra, sem passar pelos sócios.</div></div>
     <div class="f" id="fs7" ${F.recebido_por===DIRETO?"":"hidden"}><label>Abate de qual compra Smartdive?</label><select id="fcomp" onchange="F.onCot()">${cands.length?"":'<option value="">Nenhuma compra lançada — lance a compra primeiro</option>'}${cands.map(c=>`<option value="${c.id}" ${c.id===F.compra_id?"selected":""}>${esc(D(c).numero)} · ${esc(D(c).doc||D(c).fornecedor||"")} · falta ${fmt(compraSaldo(c),"EUR")}${D(c).venda_id===F.venda_id?" · desta venda":""}</option>`).join("")}</select></div>
-    <div class="f"><label>Forma</label>${pills("forma",["Zelle","Wire","Pix","PayPal","Dinheiro","Outro"],F.forma)}</div>
+    <div class="f"><label>Forma</label>${pills("forma",["Zelle","Wire","Pix","PayPal","Dinheiro","Compensação","Outro"],F.forma)}</div>
     <div class="f"><label>Observação</label><textarea id="fobs">${esc(F.obs)}</textarea></div>
     ${formActions("recebimento",r?.id)}`},
   after(){initCot()},
@@ -772,7 +787,7 @@ FORMS.recebimento={
 /* Custo */
 FORMS.custo={
   html(){const r=editRow();const d=D(r);const pre=S.param?.venda_id;
-    F={kind:"custo",id:r?.id,data:r?.data||today(),cat:d.cat||"Frete",moeda:d.moeda||"BRL",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||S.me,venda_id:d.venda_id||pre||"",obs:d.obs||"",usesCot:true};
+    F={kind:"custo",id:r?.id,data:r?.data||today(),cat:d.cat||"Frete",moeda:d.moeda||"BRL",valor:d.valor||0,cot:d.cot||null,pago_por:d.pago_por||S.me,forma:d.forma||"Pix",venda_id:d.venda_id||pre||"",obs:d.obs||"",usesCot:true};
     F.back=pre?"venda":(r?"custos":"home");F.backParam=pre;
     F.onCot=()=>{const e=$("#fabat");if(e)e.innerHTML=cotOk(F.cot)&&F.valor?`Equivale a <b>${fmt(conv(F.valor,F.moeda,"BRL",F.cot))}</b>`:""};
     F.onPick=n=>{if(n==="moeda")F.onCot()};
@@ -783,11 +798,12 @@ FORMS.custo={
     ${moneyFields()}
     <div class="cot" id="fabat" style="border-style:solid"></div>
     <div class="f"><label>Quem pagou?</label>${pills("pago_por",SOCIOS,F.pago_por)}</div>
+    <div class="f"><label>Forma</label>${pills("forma",["Pix","Cartão","Wire","Zelle","Dinheiro","Compensação","Outro"],F.forma)}</div>
     <div class="f"><label>Ligado a uma venda? (opcional)</label><select id="fvend"><option value="">— Custo geral —</option>${act("venda").map(v=>`<option value="${v.id}" ${v.id===F.venda_id?"selected":""}>${esc(D(v).numero)} · ${esc(cliNome(D(v).cliente_id))}</option>`).join("")}</select></div>
     ${formActions("custo",r?.id)}`},
   after(){initCot()},
   save(){if(!F.valor)return ferr("Informe o valor.");if(!cotOk(F.cot))return ferr("Sem cotação: toque em “ajustar taxa” e informe.");
-    const dados={cat:F.cat,desc:$("#fdesc").value.trim(),moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),pago_por:F.pago_por,venda_id:$("#fvend").value};
+    const dados={cat:F.cat,desc:$("#fdesc").value.trim(),moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),pago_por:F.pago_por,forma:F.forma,venda_id:$("#fvend").value};
     doSave("custo",F.data,dados,F.id);}
 };
 
@@ -979,7 +995,7 @@ function viewCustos(){
 }
 function viewPainel(){
   const t=totais();
-  const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou}});
+  const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou+tNet(n),tr:tNet(n)}});
   const devedores=act("cliente").map(c=>{const vs=act("venda").filter(v=>D(v).cliente_id===c.id);return{c,deve:sum(vs,v=>Math.max(0,vendaSaldo(v))*(D(v).cot?.[D(v).moeda]||0))}}).filter(x=>x.deve>0.01);
   return `${backTo("home")}<div class="top" style="justify-content:space-between"><h2>📊 Painel</h2><button class="btn" style="min-height:42px;padding:9px 18px;font-size:14px" onclick="imprimirRelatorio()">🖨️ Imprimir relatório</button></div><div class="hint" style="margin:-6px 0 12px">Tudo em reais. Valores ainda em aberto usam o câmbio da data do lançamento.</div>
   <div class="nums">
@@ -995,7 +1011,7 @@ function viewPainel(){
    <div class="card"><div class="lbl">Caixa da empresa</div><b class="${t.caixa>=0?"ok":"redt"}">${fmt(t.caixa)}</b><div class="small mut">${t.caixa<0?"sócios bancando":"sobra"}</div></div>
   </div>
   <div class="sec"><b>Sócios · conta com a empresa</b><i></i></div>
-  ${soc.map(x=>`<div class="card item" style="margin-bottom:8px" onclick="go('socio','${x.n}')"><dl class="kv"><dt><b>${x.n}</b> · gastou pela empresa</dt><dd>${fmt(x.colocou)}</dd><dt>recebeu de clientes (está com ele)</dt><dd>${fmt(x.recebeu)}</dd>
+  ${soc.map(x=>`<div class="card item" style="margin-bottom:8px" onclick="go('socio','${x.n}')"><dl class="kv"><dt><b>${x.n}</b> · gastou pela empresa</dt><dd>${fmt(x.colocou)}</dd><dt>recebeu de clientes (está com ele)</dt><dd>${fmt(x.recebeu)}</dd>${Math.abs(x.tr)>0.01?`<dt>acertos / transferências</dt><dd>${x.tr>0?"+":"−"} ${fmt(Math.abs(x.tr))}</dd>`:""}
    <dt class="tt">${x.liq<-0.01?"Empresa deve reembolsar":x.liq>0.01?"Está com dinheiro da empresa":"Zerado"}</dt><dd class="tt ${x.liq<-0.01?"warn":x.liq>0.01?"ok":""}">${fmt(Math.abs(x.liq))}</dd></dl><div class="hint redt">Ver lançamentos de ${x.n} →</div></div>`).join("")}
   <div class="card"><dl class="kv"><dt>Lucro previsto · Tae (50%)</dt><dd>${fmt(t.lucro/2)}</dd><dt>Lucro previsto · Johnny (50%)</dt><dd>${fmt(t.lucro/2)}</dd></dl>
    <div class="hint">“Gastou” = pagamentos à Smartdive + custos pagos por ele. “Recebeu” = dinheiro de clientes que ficou com ele.</div></div>
@@ -1006,7 +1022,8 @@ function viewSocio(){
   const n=S.param||"Tae";
   const ent=[...act("pagamento").filter(p=>D(p).pago_por===n).map(r=>({r,t:"Pagamento S7",d:D(byId(D(r).compra_id)).doc||D(byId(D(r).compra_id)).numero||"",s:-1})),
     ...act("custo").filter(c=>D(c).pago_por===n).map(r=>({r,t:"Custo · "+D(r).cat,d:D(r).desc||"",s:-1})),
-    ...act("recebimento").filter(x=>D(x).recebido_por===n).map(r=>{const v=byId(D(r).venda_id);return{r,t:"Recebeu",d:`${D(v).numero||""} · ${cliNome(D(v).cliente_id)}`,s:1}})]
+    ...act("recebimento").filter(x=>D(x).recebido_por===n).map(r=>{const v=byId(D(r).venda_id);return{r,t:"Recebeu",d:`${D(v).numero||""} · ${cliNome(D(v).cliente_id)}`,s:1}}),
+    ...act("transferencia").filter(t=>D(t).de==="s:"+n||D(t).para==="s:"+n).map(r=>{const out=D(r).de==="s:"+n;return{r,t:(D(r).motivo||"Acerto")+(out?" → "+parteNome(D(r).para):" ← "+parteNome(D(r).de)),d:D(r).desc||D(r).forma||"",s:out?-1:1}})]
     .sort((a,b)=>String(b.r.data).localeCompare(a.r.data));
   const gastou=sum(ent.filter(e=>e.s<0),e=>D(e.r).valor_brl),recebeu=sum(ent.filter(e=>e.s>0),e=>D(e.r).valor_brl),liq=recebeu-gastou;
   const porMoeda=m=>{const g=sum(ent.filter(e=>e.s<0&&D(e.r).moeda===m),e=>D(e.r).valor),rr=sum(ent.filter(e=>e.s>0&&D(e.r).moeda===m),e=>D(e.r).valor);return g||rr?`<dt>${SYM[m]} gastou / recebeu</dt><dd>${fmt(g,m)} / ${fmt(rr,m)}</dd>`:""};
@@ -1027,7 +1044,7 @@ async function trocarSenha(){const a=$("#np1").value,b=$("#np2").value;
   if(a.length<6)return ferr("A senha precisa ter pelo menos 6 caracteres.");if(a!==b)return ferr("As duas senhas não são iguais.");
   $("#fsave").disabled=true;const {error}=await sb.auth.updateUser({password:a});
   if(error)return ferr("Não deu certo: "+error.message);toast("Senha alterada ✓");go("home")}
-const TIPOS={ajuste:"Ajuste de estoque",nota:"Anotação",compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
+const TIPOS={transferencia:"Acerto / transferência",ajuste:"Ajuste de estoque",nota:"Anotação",compra:"Compra",pagamento:"Pagamento",venda:"Venda",recebimento:"Recebimento",custo:"Custo",cliente:"Cliente",produto:"Produto"};
 function resumo(r){const d=D(r);switch(r.tipo){
   case"compra":return `${d.numero} · ${d.doc||d.fornecedor} · ${fmt(d.total,"EUR")}`;
   case"pagamento":return `${fmt(d.valor,d.moeda)} → ${D(byId(d.compra_id)).numero||""}`;
@@ -1036,8 +1053,9 @@ function resumo(r){const d=D(r);switch(r.tipo){
   case"custo":return `${d.cat} · ${fmt(d.valor,d.moeda)}`;
   case"nota":return d.titulo;
   case"ajuste":return `${pCod(byId(d.produto_id))} ${d.qtd>0?"+":""}${d.qtd} · ${d.motivo}`;
+  case"transferencia":return `${parteNome(d.de)} → ${parteNome(d.para)} · ${fmt(d.valor,d.moeda)}`;
   case"cliente":return `${d.numero} · ${d.nome}`;case"produto":return d.nome}}
-function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],nota:["form:nota",r.id],ajuste:["form:ajuste",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
+function abrir(r){const m={compra:["compra",r.id],venda:["venda",r.id],pagamento:["form:pagamento",r.id],recebimento:["form:recebimento",r.id],custo:["form:custo",r.id],cliente:["form:cliente",r.id],nota:["form:nota",r.id],ajuste:["form:ajuste",r.id],transferencia:["form:transferencia",r.id],produto:["form:produto",r.id]}[r.tipo];go(m[0],m[1])}
 function viewHistorico(){
   let rs=S.rows.filter(r=>r.tipo!=="import").sort((a,b)=>String(b.created_at).localeCompare(a.created_at));
   if(S.hist==="cancelados")rs=rs.filter(r=>r.status==="cancelado");
@@ -1092,7 +1110,7 @@ async function importarJP(){
 
 /* ===== Anexos (Supabase Storage) ===== */
 const BUCKET="mts7-anexos";
-const ANX_TIPOS=["compra","pagamento","venda","recebimento","custo","cliente","nota"];
+const ANX_TIPOS=["transferencia","compra","pagamento","venda","recebimento","custo","cliente","nota"];
 const ACCEPT="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.heic,.zip";
 const fsize=b=>b>1048576?fmtN(b/1048576,1)+" MB":Math.max(1,Math.round((b||0)/1024))+" KB";
 const ficon=n=>/\.pdf$/i.test(n)?"📄":/\.(png|jpe?g|heic|webp|gif)$/i.test(n)?"🖼️":"📎";
@@ -1305,7 +1323,7 @@ function viewEstoque(){
 function relatorioHtml(){
   const t=totais(),agora=new Date();
   const vs=act("venda").slice().sort((a,b)=>String(a.data).localeCompare(b.data));
-  const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou}});
+  const soc=SOCIOS.map(n=>{const colocou=sum(act("pagamento").filter(p=>D(p).pago_por===n),p=>D(p).valor_brl)+sum(act("custo").filter(c=>D(c).pago_por===n),c=>D(c).valor_brl);const recebeu=sum(act("recebimento").filter(x=>D(x).recebido_por===n),x=>D(x).valor_brl);return{n,colocou,recebeu,liq:recebeu-colocou+tNet(n),tr:tNet(n)}});
   const kpi=(l,v,s="",c="")=>`<div class="pk"><span>${l}</span><b class="${c}">${v}</b>${s?`<small>${s}</small>`:""}</div>`;
   const cats=["Frete","Imposto","Viagem","Curso CCR","Anuidade","Outro"].map(k=>[k,sum(act("custo").filter(c=>D(c).cat===k),c=>D(c).valor_brl)]).filter(x=>x[1]);
   return `<div class="ph1"><img src="logo.png" alt=""><div><b>MT-S7 · Relatório</b><span>Mergulho Técnico · S7 CCR Brasil</span></div><div class="pd">${agora.toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})} · ${agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}<br>emitido por ${esc(S.me)}</div></div>
@@ -1362,6 +1380,128 @@ async function syncPar(recId){
     await load();
   }catch(e){toast("Atenção: o pagamento à Smartdive não foi atualizado: "+e.message)}
 }
+/* ===== Movimentação: dinheiro, quem deve a quem, estoque ===== */
+const MOTIVOS=["Transferência","Reembolso","Compensação","Empréstimo","Devolução","Outro"];
+const FORMAS_T=["Pix","Wire","Zelle","Dinheiro","Compensação","Outro"];
+const isSocK=k=>SOCIOS.some(n=>k==="s:"+n);
+function outrosNomes(){const s=new Set();act("transferencia").forEach(t=>[D(t).de,D(t).para].forEach(k=>{if(String(k).startsWith("o:"))s.add(k.slice(2))}));return [...s].sort()}
+function partes(){return [...SOCIOS.map(n=>["s:"+n,"👤 "+n]),["smartdive","🏭 Smartdive (Ivan)"],...act("cliente").map(c=>["c:"+c.id,"🤿 "+D(c).numero+" · "+D(c).nome]),...outrosNomes().map(n=>["o:"+n,"• "+n])]}
+function parteNome(k){k=String(k||"");if(k.startsWith("s:"))return k.slice(2);if(k==="smartdive")return "Smartdive";if(k==="mt")return "MT-S7";if(k.startsWith("c:"))return D(byId(k.slice(2))).nome||"Cliente";if(k.startsWith("o:")||k.startsWith("f:"))return k.slice(2);return k||"—"}
+const socK=n=>SOCIOS.includes(n)?"s:"+n:"o:"+n;
+function tNet(n){const k="s:"+n;return sum(act("transferencia"),t=>(D(t).para===k?1:0)*D(t).valor_brl-(D(t).de===k?1:0)*D(t).valor_brl)}
+function transfExt(){return sum(act("transferencia"),t=>{const a=isSocK(D(t).de),b=isSocK(D(t).para);return a&&!b?-D(t).valor_brl:!a&&b?D(t).valor_brl:0})}
+function movimentos(fat){
+  const L=[];
+  act("recebimento").forEach(r=>{const d=D(r),v=byId(d.venda_id),dir=d.recebido_por===DIRETO;
+    L.push({r,data:r.data,de:"c:"+D(v).cliente_id,para:dir?"smartdive":socK(d.recebido_por),o:`Recebimento ${D(v).numero||""}${dir?" · pago direto à S7 (abate "+(D(byId(d.compra_id)).numero||"compra")+")":""}`,moeda:d.moeda,valor:d.valor,brl:d.valor_brl,k:dir?"ac":"in",forma:d.forma,obs:d.obs})});
+  act("pagamento").filter(p=>!D(p).par_id).forEach(r=>{const d=D(r),c=byId(d.compra_id);
+    L.push({r,data:r.data,de:socK(d.pago_por),para:"smartdive",o:`Pagamento ${D(c).numero||""}${D(c).doc?" · "+D(c).doc:""}`,moeda:d.moeda,valor:d.valor,brl:d.valor_brl,k:"out",forma:d.forma,obs:d.obs})});
+  act("custo").forEach(r=>{const d=D(r);
+    L.push({r,data:r.data,de:socK(d.pago_por),para:"f:"+(d.desc||d.cat),o:`Custo · ${d.cat}${d.venda_id?" · "+(D(byId(d.venda_id)).numero||""):""}`,moeda:d.moeda,valor:d.valor,brl:d.valor_brl,k:"out",forma:d.forma||"",obs:d.desc})});
+  act("transferencia").forEach(r=>{const d=D(r),a=isSocK(d.de),b=isSocK(d.para);
+    L.push({r,data:r.data,de:d.de,para:d.para,o:`${d.motivo||"Transferência"}${d.desc?" · "+d.desc:""}`,moeda:d.moeda,valor:d.valor,brl:d.valor_brl,k:a&&b?"ac":a?"out":b?"in":"ac",forma:d.forma,obs:d.obs})});
+  if(fat){
+    act("venda").filter(v=>(D(v).itens||[]).length).forEach(r=>{const d=D(r);L.push({r,data:r.data,de:"mt",para:"c:"+d.cliente_id,o:`Fatura venda ${d.numero} · ${(d.itens||[]).length} item(ns)`,moeda:d.moeda,valor:vendaTotal(r),brl:conv(vendaTotal(r),d.moeda,"BRL",d.cot),k:"fat"})});
+    act("compra").forEach(r=>{const d=D(r);L.push({r,data:r.data,de:"smartdive",para:"mt",o:`Fatura compra ${d.numero}${d.doc?" · "+d.doc:""}`,moeda:"EUR",valor:compraTotal(r),brl:compraTotal(r)*(d.cot?.EUR||0),k:"fat"})});
+  }
+  return L.sort((a,b)=>String(b.data).localeCompare(a.data)||String(b.r.created_at).localeCompare(a.r.created_at));
+}
+function posicoes(){
+  const P={},E={};const add=(k,v)=>{P[k]=(P[k]||0)+v};
+  SOCIOS.forEach(n=>add("s:"+n,socioLiq(n)));
+  act("venda").forEach(v=>{const k="c:"+D(v).cliente_id,s=vendaSaldo(v);add(k,s*(D(v).cot?.[D(v).moeda]||0));E[k]=E[k]||{};E[k][D(v).moeda]=(E[k][D(v).moeda]||0)+s});
+  act("compra").forEach(c=>{const s=compraSaldo(c);add("smartdive",-s*(D(c).cot?.EUR||0));E.smartdive=E.smartdive||{EUR:0};E.smartdive.EUR-=s});
+  act("transferencia").forEach(t=>{const d=D(t);[[d.de,-1],[d.para,1]].forEach(([k,sg])=>{if(isSocK(k))return;add(k,sg*d.valor_brl);if(k==="smartdive"){E.smartdive=E.smartdive||{EUR:0};E.smartdive.EUR+=sg*num(d.valor_eur)}else if(k.startsWith("c:")){E[k]=E[k]||{};E[k][d.moeda]=(E[k][d.moeda]||0)+sg*num(d.valor)}})});
+  return Object.keys(P).map(k=>({k,v:r2(P[k]),e:E[k]||{}}));
+}
+function frasePos(x){const k=x.k,v=x.v,a=Math.abs(v),z=a<0.01;
+  const nat=Object.entries(x.e).filter(([,n])=>Math.abs(n)>0.01).map(([m,n])=>fmt(Math.abs(n),m)).join(" + ");
+  if(z)return{t:"Zerado",c:"",n:""};
+  if(isSocK(k))return v>0?{t:`Está com ${fmt(a)} da empresa`,c:"ok",n:""}:{t:`Empresa deve ${fmt(a)} a ${parteNome(k)}`,c:"warn",n:""};
+  if(k==="smartdive")return v<0?{t:`Empresa deve à Smartdive`,c:"warn",n:nat||fmt(a)}:{t:`Crédito com a Smartdive`,c:"ok",n:nat||fmt(a)};
+  if(k.startsWith("c:"))return v>0?{t:`Deve à empresa`,c:"warn",n:nat}:{t:`Adiantou / tem crédito`,c:"ok",n:nat};
+  return v>0?{t:`Deve à empresa`,c:"warn",n:""}:{t:`Empresa deve`,c:"warn",n:""};
+}
+const KTAG={in:["entrada","ok"],out:["saída","x"],ac:["acerto",""],fat:["fatura","dim"]};
+function movRow(m){const dt=new Date(m.data+"T12:00");const ax=(D(m.r).anexos||[]).length;
+  const sinal=m.k==="in"?"+":m.k==="out"?"−":"";
+  return `<button class="mvr" onclick='abrir(byId("${m.r.id}"))'><div class="d"><b>${dt.getDate()}</b>${dt.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"}).replace(". de "," ").replace(".","")}</div>
+   <div class="w"><div class="ft"><b>${esc(parteNome(m.de))}</b><span class="ar">→</span><b>${esc(parteNome(m.para))}</b></div><div class="o">${esc(m.o)}${m.forma?` · ${esc(m.forma)}`:""}${ax?` · 📎${ax}`:""}</div></div>
+   <div class="tg">${st(KTAG[m.k][0],KTAG[m.k][1])}${/compens/i.test(m.forma||"")?" "+st("sem dinheiro",""):""}</div>
+   <div class="v"><b class="${m.k==="in"?"ok":m.k==="out"?"redt":""}">${sinal}${fmt(m.valor,m.moeda)}</b><small>${m.moeda!=="BRL"?fmt(m.brl):""}</small></div></button>`}
+function movEstoque(){
+  const L=[];const nm=(it)=>it.produto_id?{cod:pCod(byId(it.produto_id)),n:prodNome(it.produto_id)}:{cod:"",n:it.nome||"(item)"};
+  act("compra").forEach(c=>(D(c).itens||[]).forEach(it=>{const x=nm(it);L.push({r:c,data:c.data,pid:it.produto_id,cod:x.cod,n:x.n,q:num(it.qtd),uso:itUso(it),o:`${D(c).numero} · ${D(c).doc||D(c).fornecedor||"compra"}`,ic:"📦"})}));
+  act("venda").forEach(v=>(D(v).itens||[]).forEach(it=>{const x=nm(it);L.push({r:v,data:D(v).entrega?.data||v.data,pid:it.produto_id,cod:x.cod,n:x.n,q:-num(it.qtd),uso:itUso(it),o:`${D(v).numero} · ${D(byId(D(v).cliente_id)).nome||""}${D(v).entrega?" · entregue":" · a entregar"}`,ic:"🤿",pend:!D(v).entrega})}));
+  act("ajuste").forEach(a=>{const p=byId(D(a).produto_id);L.push({r:a,data:a.data,pid:D(a).produto_id,cod:pCod(p),n:D(p).nome||"",q:num(D(a).qtd),uso:"estoque",o:`Ajuste · ${D(a).motivo||""}${D(a).obs?" · "+D(a).obs:""}`,ic:"🔧"})});
+  return L.sort((a,b)=>String(a.data).localeCompare(b.data));
+}
+const USOTAG={estoque:["estoque","ok"],ativo:["ativo",""],consumo:["consumo","dim"],"":["sem código","warn"]};
+function viewMov(){
+  const M=S.mv||(S.mv={tab:"din",f:"todos",p:"",ini:"",fim:"",prod:""});
+  const tabs=[["din","💸 Dinheiro"],["pos","⚖️ Quem deve a quem"],["est","📦 Estoque"]];
+  let body="";
+  if(M.tab==="din"){
+    let L=movimentos(M.f==="fat"||M.f==="tudo");
+    if(M.f==="in")L=L.filter(m=>m.k==="in");else if(M.f==="out")L=L.filter(m=>m.k==="out");else if(M.f==="ac")L=L.filter(m=>m.k==="ac"||/compens/i.test(m.forma||""));else if(M.f==="fat")L=L.filter(m=>m.k==="fat");else if(M.f==="todos")L=L.filter(m=>m.k!=="fat");
+    if(M.p)L=L.filter(m=>m.de===M.p||m.para===M.p);
+    if(M.ini)L=L.filter(m=>m.data>=M.ini);if(M.fim)L=L.filter(m=>m.data<=M.fim);
+    const tin=sum(L.filter(m=>m.k==="in"),m=>m.brl),tout=sum(L.filter(m=>m.k==="out"),m=>m.brl),tac=sum(L.filter(m=>m.k==="ac"),m=>m.brl);
+    const F2=[["todos","Todos"],["in","Entradas"],["out","Saídas"],["ac","Acertos / compensações"],["fat","Faturas"],["tudo","Tudo + faturas"]];
+    const pOpts=partes();if(M.p&&!pOpts.some(o=>o[0]===M.p))pOpts.push([M.p,parteNome(M.p)]);
+    body=`<div class="mvf"><div class="pills">${F2.map(([k,l])=>`<button class="pill ${M.f===k?"on":""}" onclick="S.mv.f='${k}';render()">${l}</button>`).join("")}</div>
+     <div class="mvf2"><select onchange="S.mv.p=this.value;render()"><option value="">Todas as pessoas</option>${pOpts.map(([k,l])=>`<option value="${esc(k)}" ${k===M.p?"selected":""}>${esc(l)}</option>`).join("")}</select>
+     <input type="date" value="${M.ini}" onchange="S.mv.ini=this.value;render()" title="de"><input type="date" value="${M.fim}" onchange="S.mv.fim=this.value;render()" title="até">${M.p||M.ini||M.fim?`<button class="chip" onclick="Object.assign(S.mv,{p:'',ini:'',fim:''});render()">limpar</button>`:""}</div></div>
+     <div class="nums n3" style="margin:12px 0"><div class="card"><div class="lbl">Entrou</div><b class="ok">${fmt(tin)}</b><div class="small mut">${L.filter(m=>m.k==="in").length} lançamento(s)</div></div><div class="card"><div class="lbl">Saiu</div><b class="redt">${fmt(tout)}</b><div class="small mut">${L.filter(m=>m.k==="out").length} lançamento(s)</div></div><div class="card"><div class="lbl">Entrou − saiu</div><b class="${tin-tout>=0?"":"redt"}">${fmt(tin-tout)}</b><div class="small mut">${tac?"acertos "+fmt(tac)+" (não entram)":"em R$, câmbio do dia"}</div></div></div>
+     ${M.p?(()=>{const x=posicoes().find(y=>y.k===M.p);if(!x)return"";const f=frasePos(x);return `<div class="card banner" style="margin-bottom:12px"><b>${esc(parteNome(M.p))}</b> · <span class="${f.c}">${esc(f.t)}${f.n?" "+f.n:""}</span>${f.n||isSocK(M.p)?"":` <span class="mut">${fmt(Math.abs(x.v))}</span>`}</div>`})():""}
+     <div class="mvl">${L.map(movRow).join("")||'<div class="empty">Nada neste filtro.</div>'}</div>
+     <div class="hint" style="margin-top:10px">Entrada = dinheiro que chegou para a empresa (com um sócio). Saída = dinheiro que a empresa pagou. Acerto = dinheiro que andou entre pessoas sem passar pelo caixa (entre sócios, cliente pagando direto à Smartdive, compensações).</div>`;
+  }else if(M.tab==="pos"){
+    const P=posicoes().filter(x=>Math.abs(x.v)>0.01||isSocK(x.k)||x.k==="smartdive");
+    const grp=[["👤 Sócios",P.filter(x=>isSocK(x.k))],["🏭 Fornecedor",P.filter(x=>x.k==="smartdive")],["🤿 Clientes",P.filter(x=>x.k.startsWith("c:")).sort((a,b)=>b.v-a.v)],["• Outros",P.filter(x=>x.k.startsWith("o:"))]].filter(g=>g[1].length);
+    const pT=socioLiq("Tae"),pJ=socioLiq("Johnny");let sug="";
+    if(pT>0.01&&pJ<-0.01||pJ>0.01&&pT<-0.01){const [a,b]=pT>0?["Tae","Johnny"]:["Johnny","Tae"],v=r2(Math.min(Math.abs(pT),Math.abs(pJ)));sug=`<div class="card banner" style="margin-bottom:12px">💡 <b>Acerto entre sócios:</b> ${a} está com dinheiro da empresa e a empresa deve a ${b}. Se ${a} passar <b>${fmt(v)}</b> para ${b}, os dois ficam mais perto de zero. <div style="margin-top:8px"><button class="chip" onclick="go('form:transferencia',{de:'s:${a}',para:'s:${b}',valor:${v},motivo:'Compensação'})">Lançar esse acerto →</button></div></div>`}
+    body=`${sug}${grp.map(([t,xs])=>`<div class="sec"><b>${t}</b><i></i></div><div class="list">${xs.map(x=>{const f=frasePos(x);return `<button class="card item" onclick="S.mv.tab='din';S.mv.p='${esc(x.k)}';S.mv.f='tudo';render()"><div class="l1"><b>${esc(parteNome(x.k))}</b><b class="${f.c}">${f.n||fmt(Math.abs(x.v))}</b></div><div class="l2"><span>${esc(f.t)}</span><span style="white-space:nowrap">${f.n?"≈ "+fmt(Math.abs(x.v))+" ":""}›</span></div></button>`}).join("")}</div>`).join("")}
+    <div class="hint" style="margin-top:10px">Tudo visto do lado da empresa (MT-S7). Clientes: saldo das vendas menos o que já pagaram (reserva sem itens aparece como adiantamento). Smartdive: o que falta pagar das compras. Sócios: o que receberam de clientes − o que gastaram pela empresa ± acertos entre eles.</div>`;
+  }else{
+    let L=movEstoque();const prods=prodsOrd().filter(p=>L.some(m=>m.pid===p.id));
+    if(M.prod==="__txt")L=L.filter(m=>!m.pid);else if(M.prod)L=L.filter(m=>m.pid===M.prod);
+    let run=0;const rows=L.map(m=>{if(m.uso==="estoque"&&m.pid)run+=m.q;return{...m,run}}).reverse();
+    body=`<div class="mvf2" style="margin-bottom:12px"><select onchange="S.mv.prod=this.value;render()"><option value="">Todos os itens</option>${prods.map(p=>`<option value="${p.id}" ${p.id===M.prod?"selected":""}>${esc(pCod(p))} · ${esc(D(p).nome)}</option>`).join("")}${L.some(m=>!m.pid)||M.prod==="__txt"?`<option value="__txt" ${M.prod==="__txt"?"selected":""}>Itens sem código</option>`:""}</select><button class="chip" onclick="go('form:ajuste')">+ Ajuste</button><button class="chip" onclick="go('estoque')">Saldo por item ›</button></div>
+    <div class="mvl">${rows.map(m=>{const dt=new Date(m.data+"T12:00");return `<button class="mvr" onclick='abrir(byId("${m.r.id}"))'><div class="d"><b>${dt.getDate()}</b>${dt.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"}).replace(". de "," ").replace(".","")}</div>
+     <div class="w"><div class="ft">${m.cod?`<span class="tag" style="margin-right:6px">${esc(m.cod)}</span>`:""}<b>${esc(m.n)}</b></div><div class="o">${m.ic} ${esc(m.o)}</div></div>
+     <div class="tg">${st(...USOTAG[m.uso]||USOTAG[""])}</div>
+     <div class="v"><b class="${m.q>0?"ok":"redt"}">${m.q>0?"+":""}${fmtN(m.q,0)}</b><small>${M.prod&&M.prod!=="__txt"&&m.uso==="estoque"?"saldo "+fmtN(m.run,0):""}</small></div></button>`}).join("")||'<div class="empty">Nenhum movimento de estoque.</div>'}</div>
+    <div class="hint" style="margin-top:10px">Entradas = itens das compras · saídas = itens das vendas (data da entrega quando houver) · ajustes manuais. Escolha um item para ver o saldo linha a linha. Ativo e consumo aparecem aqui mas não mexem no disponível.</div>`;
+  }
+  return `${backTo("home")}<div class="top" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0">💸 Movimentação</h2><button class="btn" style="min-height:42px;padding:9px 18px;font-size:14px" onclick="go('form:transferencia')">+ Acerto / transferência</button></div>
+  <div class="pills mvtabs">${tabs.map(([k,l])=>`<button class="pill ${M.tab===k?"on":""}" onclick="S.mv.tab='${k}';render()">${l}</button>`).join("")}</div>${body}`;
+}
+/* Acerto / transferência entre pessoas */
+FORMS.transferencia={
+  html(){const r=editRow();const d=D(r);const pre=(S.param&&typeof S.param==="object")?S.param:{};
+    F={kind:"transf",id:r?.id,data:r?.data||today(),de:d.de||pre.de||"s:"+S.me,para:d.para||pre.para||"",moeda:d.moeda||"BRL",valor:d.valor||pre.valor||0,cot:d.cot||null,motivo:d.motivo||pre.motivo||"Transferência",forma:d.forma||"Pix",usesCot:true,back:"mov"};
+    F.onCot=()=>{const e=$("#fabat");if(e)e.innerHTML=cotOk(F.cot)&&F.valor&&F.moeda!=="BRL"?`Equivale a <b>${fmt(conv(F.valor,F.moeda,"BRL",F.cot))}</b>`:""};
+    F.onPick=n=>{if(n==="moeda")F.onCot()};
+    const sel=(id,val)=>{const o=partes();if(val&&!o.some(x=>x[0]===val))o.push([val,parteNome(val)]);return `<select id="${id}" onchange="$('#${id}o').hidden=this.value!=='__o'"><option value="">Escolha…</option>${o.map(([k,l])=>`<option value="${esc(k)}" ${k===val?"selected":""}>${esc(l)}</option>`).join("")}<option value="__o">➕ Outra pessoa / empresa…</option></select><input id="${id}o" placeholder="Nome (ex.: Anton · IDF)" style="margin-top:8px" hidden>`};
+    return `${backTo("mov")}<div class="lbl">${r?"Editar":"Novo"} acerto</div><h2>⇄ Acerto / transferência</h2>
+    <div class="hint" style="margin:-6px 0 10px">Para dinheiro que andou entre pessoas fora de uma venda ou compra: um sócio passando para o outro, reembolso, empréstimo, devolução de adiantamento, ou compensação (“fulano pagou cicrano por mim”). Recebimento de venda e pagamento de compra continuam nos botões próprios.</div>
+    ${dateField()}
+    <div class="row2"><div class="f"><label>Quem pagou / deu</label>${sel("fde",F.de)}</div><div class="f"><label>Quem recebeu</label>${sel("fpara",F.para)}</div></div>
+    <div class="f"><label>Motivo</label>${pills("motivo",MOTIVOS,F.motivo)}</div>
+    ${moneyFields()}
+    <div class="cot" id="fabat" style="border-style:solid"></div>
+    <div class="f"><label>Forma</label>${pills("forma",FORMAS_T,F.forma)}<div class="hint">“Compensação” = não saiu dinheiro: uma dívida foi abatida de outra.</div></div>
+    <div class="f"><label>Descrição</label><input id="fdesc" value="${esc(d.desc||"")}" placeholder="Ex.: JP acertou com Tae a parte da passagem"></div>
+    <div class="f"><label>Observação</label><textarea id="fobs">${esc(d.obs||"")}</textarea></div>
+    ${formActions("transferencia",r?.id)}`},
+  after(){initCot()},
+  save(){const g=id=>{const v=$("#"+id).value;if(v==="__o"){const n=$("#"+id+"o").value.trim();return n?"o:"+n:""}return v};
+    const de=g("fde"),para=g("fpara");if(!de||!para)return ferr("Escolha quem pagou e quem recebeu.");if(de===para)return ferr("Quem pagou e quem recebeu são a mesma pessoa.");
+    if(!F.valor)return ferr("Informe o valor.");if(!cotOk(F.cot))return ferr("Sem cotação: toque em “ajustar taxa” e informe.");
+    const r=editRow();
+    doSave("transferencia",F.data,{...D(r),de,para,motivo:F.motivo,forma:F.forma,moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),valor_eur:r2(conv(F.valor,F.moeda,"EUR",F.cot)),desc:$("#fdesc").value.trim(),obs:$("#fobs").value.trim()},F.id);}
+};
 /* ===== Start ===== */
 $("#brand").onclick=()=>go("home");
 (async()=>{
