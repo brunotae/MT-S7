@@ -131,6 +131,16 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85
 .tag.dim{color:var(--dim)}
 @media (min-width:1024px){.nums.n3{grid-template-columns:repeat(3,1fr)}.nums.n3>div:last-child{grid-column:auto}
  .mvr{grid-template-columns:52px minmax(0,1fr) 150px 170px;grid-template-areas:"d w tg v"}.mvr .tg{text-align:center}}
+.dropz{display:flex;flex-direction:column;align-items:center;gap:6px;padding:34px 16px;border-style:dashed;border-width:2px;cursor:pointer;text-align:center}
+.dropz small{color:var(--mut);font-size:12.5px}
+.sg{margin-bottom:10px;border-left:3px solid var(--line)}.sg.on{border-left-color:var(--red)}.sg.done{border-left-color:var(--ok);opacity:.85}.sg.off{opacity:.55;padding:10px 14px}
+.sgh{display:flex;justify-content:space-between;align-items:center;gap:10px}.ck{display:flex;align-items:center;gap:10px;cursor:pointer}.ck input{width:20px;height:20px;accent-color:var(--red)}
+.sgm{font-size:13px;margin-top:8px}.sge{font-size:12.5px;color:var(--mut);margin-top:6px;border-left:2px solid var(--line);padding-left:10px;font-style:italic;white-space:pre-wrap}
+.sgw{font-size:12.5px;color:var(--warn);margin-top:6px}
+.sgg{display:grid;grid-template-columns:1fr;gap:0 10px;margin-top:10px}.sgg .f{margin-bottom:8px}.sgg label{font-size:11.5px}
+.sgit{display:grid;grid-template-columns:minmax(0,1fr) 54px 84px 24px;gap:6px;margin-bottom:6px;align-items:center}.sgit input,.sgit select{padding:9px 8px;font-size:14px}
+.lbar{position:sticky;bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;z-index:5;border-color:#6b1a1e}
+@media (min-width:640px){.sgg{grid-template-columns:1fr 1fr}.sgg .full{grid-column:1/-1}}
 @media print{
   @page{size:A4 portrait;margin:12mm 10mm}
   html,body{background:#fff!important;color:#111!important;font-size:10px}
@@ -431,9 +441,9 @@ function render(){
   if(!S.user){m.innerHTML=viewLogin();m.className="";return}
   const [v,sub]=S.view.split(":");m.className=(v==="home"||v==="jornada"||v==="mov")?"":"narrow";
   if(v==="home")setTimeout(loadFx,0);
-  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas,revisar:viewRevisar,mov:viewMov};
+  const V={home:viewHome,painel:viewPainel,vendas:viewVendas,compras:viewCompras,clientes:viewClientes,produtos:viewProdutos,custos:viewCustos,estoque:viewEstoque,historico:viewHistorico,venda:viewVendaDet,compra:viewCompraDet,socio:viewSocio,senha:viewSenha,jornada:viewJornada,arquivos:viewArquivos,notas:viewNotas,revisar:viewRevisar,mov:viewMov,ler:viewLer};
   if(v==="form"){m.innerHTML=FORMS[sub].html();FORMS[sub].after&&FORMS[sub].after();return}
-  m.innerHTML=(V[v]||viewHome)();
+  m.innerHTML=(V[v]||viewHome)();if(v==="ler")setTimeout(lerBar,0);
 }
 
 /* ===== Login ===== */
@@ -562,7 +572,7 @@ function viewHome(){
   <div class="foot mobile-only"><span>Conectado como <b>${esc(S.me)}</b></span><span><button class="chip" onclick="go('senha')">🔑 Senha</button> <button class="chip" onclick="sair()">Sair</button></span></div>`;
 }
 function viewJornada(){return `${backTo("home")}${jornadaPanel(true)}`}
-const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["mov","💸","Movimentação","Money & stock flow"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["notas","📒","Anotações","Notes & info"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
+const NAV=[["home","📊","Painel","Dashboard"],["jornada","🧭","Jornada","Client journey"],["mov","💸","Movimentação","Money & stock flow"],["ler","📥","Ler conversa","WhatsApp → lançamentos"],["vendas","🤿","Vendas","Sales"],["compras","📦","Compras","Smartdive orders"],["clientes","👥","Clientes","Clients"],["produtos","🏷️","Produtos","Products"],["estoque","📚","Estoque","Stock"],["custos","🧾","Custos","Costs"],["painel","📈","Relatório","Reports"],["socio","👤","Sócios","Partners"],["notas","📒","Anotações","Notes & info"],["arquivos","📎","Arquivos","Files"],["historico","🕘","Histórico","History"],["senha","⚙️","Conta","Account"]];
 function renderShell(){
   const side=$("#side"),top=$("#topbar");if(!S.user){side.innerHTML="";top.innerHTML="";return}
   const v=S.view.split(":")[0];
@@ -836,7 +846,7 @@ FORMS.cliente={
 };
 
 /* Anotações */
-const NCATS=["Fornecedor / Banco","Endereço","Documento","Logística","Contato","Outro"];
+const NCATS=["Pendência","Fornecedor / Banco","Endereço","Documento","Logística","Contato","Outro"];
 FORMS.nota={
   html(){const r=editRow();const d=D(r);F={kind:"nota",id:r?.id,back:"notas",ncat:d.cat||(S.param?.cat)||"Outro"};
     return `${backTo("notas")}<div class="lbl">${r?"Editar":"Nova"} anotação</div><h2>📒 Anotação</h2>
@@ -1174,8 +1184,9 @@ function dropAlvo(){
   if(!S.user)return null;
   const v=S.view;
   if((v==="venda"||v==="compra")&&byId(S.param))return{modo:"det",id:S.param,txt:`Solte para anexar à ${v==="venda"?"venda":"compra"} ${D(byId(S.param)).numero||""}`};
+  if(v==="ler")return{modo:"ler",txt:"Solte para ler a conversa",sub:".zip do WhatsApp, .txt ou prints"};
   if(v.startsWith("form:")&&$("#fqueue")&&F){const r=F.id?byId(F.id):null;return{modo:r?"det":"fila",id:r?.id,txt:r?"Solte para anexar a este lançamento":"Solte para anexar (sobe ao salvar)"}}
-  return{modo:"nada",txt:"Aqui não dá para anexar",sub:"Abra uma venda, compra, pagamento, recebimento, custo, cliente ou anotação"};
+  return{modo:"nada",txt:"Aqui não dá para anexar",sub:"Abra uma venda, compra, pagamento, recebimento, custo, cliente ou anotação · conversa do WhatsApp: use 📥 Ler conversa"};
 }
 let dragN=0;
 const temArquivo=e=>[...(e.dataTransfer?.types||[])].includes("Files");
@@ -1184,6 +1195,7 @@ document.addEventListener("dragover",e=>{if(temArquivo(e))e.preventDefault()});
 document.addEventListener("dragleave",e=>{if(!temArquivo(e))return;dragN=Math.max(0,dragN-1);if(!dragN)$("#drop").hidden=true});
 document.addEventListener("drop",async e=>{if(!temArquivo(e))return;e.preventDefault();dragN=0;$("#drop").hidden=true;
   const fs=[...e.dataTransfer.files];const a=dropAlvo();if(!fs.length||!a)return;
+  if(a.modo==="ler")return lerArquivos(fs);
   if(a.modo==="nada")return toast("Abra um lançamento para anexar o arquivo");
   if(a.modo==="fila"){F.files=[...(F.files||[]),...fs];$("#fqueue").innerHTML=F.files.map(f=>`${ficon(f.name)} ${esc(f.name)} · ${fsize(f.size)} <span class="dim">(vai junto ao salvar)</span>`).join("<br>");return toast(fs.length+" arquivo(s) na fila ✓")}
   toast("Enviando "+fs.length+" arquivo(s)…");
@@ -1517,6 +1529,174 @@ FORMS.transferencia={
     const r=editRow();
     doSave("transferencia",F.data,{...D(r),de,para,motivo:F.motivo,forma:F.forma,moeda:F.moeda,valor:F.valor,cot:F.cot,valor_brl:r2(conv(F.valor,F.moeda,"BRL",F.cot)),valor_eur:r2(conv(F.valor,F.moeda,"EUR",F.cot)),desc:$("#fdesc").value.trim(),obs:$("#fobs").value.trim()},F.id);}
 };
+/* ===== Ler conversa (WhatsApp) → sugestões → conferência humana ===== */
+const LER_FN="mts7-ler";
+const FORMAS_R=["Zelle","Wire","Pix","PayPal","Dinheiro","Compensação","Outro"],FORMAS_P=["Wire","Zelle","Pix","Cartão","Compensação","Outro"],CATS_C=["Frete","Imposto","Viagem","Curso CCR","Anuidade","Outro"];
+const SGT={recebimento:["💰","Recebimento de cliente"],pagamento:["💶","Pagamento à Smartdive"],custo:["🧾","Custo"],transferencia:["⇄","Acerto / transferência"],compra:["📦","Pedido / compra Smartdive"],cliente:["👥","Cliente novo"],nota:["📒","Anotação"],pendencia:["📌","Pendência / a fazer"]};
+let LR=null; // estado da leitura
+function loadJSZip(){return window.JSZip?Promise.resolve():new Promise((ok,er)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";s.onload=ok;s.onerror=()=>er(new Error("não consegui carregar o leitor de .zip"));document.head.appendChild(s)})}
+async function imgB64(blob){const bmp=await createImageBitmap(blob);const k=Math.min(1,1400/Math.max(bmp.width,bmp.height));const c=document.createElement("canvas");c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.8).split(",")[1]}
+async function sha(t){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("").slice(0,24)}
+const IMGRX=/\.(jpe?g|png|webp)$/i;
+async function lerArquivos(files){
+  LR={fase:"lendo",arquivo:files.map(f=>f.name).join(", "),texto:"",imgs:[],sug:[],resumo:"",erro:""};S.view==="ler"?render():go("ler");
+  try{let txt="",imgs=[];
+    const pj=files.find(f=>/\.json$/i.test(f.name));
+    if(pj){const t=await pj.text();lerCarregar(JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1)));LR.arquivo=pj.name;LR.hash="pk:"+await sha(t);render();return}
+    for(const f of files){
+      if(/\.zip$/i.test(f.name)){await loadJSZip();const z=await JSZip.loadAsync(f);const ents=Object.values(z.files).filter(e=>!e.dir&&!/__MACOSX/.test(e.name));
+        const t=ents.filter(e=>/\.txt$/i.test(e.name)).sort((a,b)=>/chat/i.test(b.name)-/chat/i.test(a.name))[0];if(t)txt+=(txt?"\n":"")+await t.async("string");
+        for(const e of ents.filter(e=>IMGRX.test(e.name)).sort((a,b)=>a.name.localeCompare(b.name)))imgs.push({nome:e.name.split("/").pop(),blob:await e.async("blob")});
+      }else if(/\.(txt|md)$/i.test(f.name)||f.type.startsWith("text"))txt+=(txt?"\n":"")+await f.text();
+      else if(IMGRX.test(f.name)||/^image\/(jpeg|png|webp)/.test(f.type))imgs.push({nome:f.name,blob:f});
+    }
+    if(!txt.trim()&&!imgs.length)throw new Error("não achei a conversa (.txt) nem imagens nesse arquivo");
+    LR.texto=txt;LR.imgs=imgs;LR.hash=await sha(txt+imgs.map(i=>i.nome).join());LR.fase="pronto";
+    LR.antes=S.rows.find(r=>r.tipo==="import"&&D(r).key==="chat:"+LR.hash);
+  }catch(e){LR.fase="inicio";LR.erro="Erro ao abrir: "+(e.message||e)}
+  render();
+}
+function lerContexto(){
+  return{hoje:today(),eu:S.me,socios:SOCIOS,
+    clientes:act("cliente").map(c=>({id:c.id,numero:D(c).numero,nome:D(c).nome,nome_completo:D(c).nome_completo||""})),
+    vendas:act("venda").map(v=>({id:v.id,numero:D(v).numero,cliente:D(byId(D(v).cliente_id)).nome,moeda:D(v).moeda,total:r2(vendaTotal(v)),saldo:vendaSaldo(v),etapa:D(v).etapa,itens:(D(v).itens||[]).map(itNome)})),
+    compras:act("compra").map(c=>({id:c.id,numero:D(c).numero,doc:D(c).doc||"",fornecedor:D(c).fornecedor||"",total_eur:r2(compraTotal(c)),saldo_eur:compraSaldo(c),venda:D(byId(D(c).venda_id)).numero||""})),
+    produtos:prodsOrd().map(p=>({codigo:pCod(p),nome:D(p).nome,dealer_eur:D(p).dealer,varejo_eur:D(p).varejo})),
+    outros:outrosNomes(),
+    ja_lancados:movimentos(false).slice(0,60).map(m=>({id:m.r.id,tipo:m.r.tipo,data:m.data,de:parteNome(m.de),para:parteNome(m.para),valor:m.valor,moeda:m.moeda,o:m.o}))};
+}
+async function lerAnalisar(){
+  const b=$("#lbtn");if(b){b.disabled=true;b.textContent="Lendo… (pode levar até 1 min)"}
+  LR.fase="analisando";LR.erro="";render();
+  try{
+    const desde=$("#ldesde")?.value||LR.desde||"";LR.desde=desde;
+    let texto=LR.texto;if(texto.length>120000){texto=texto.slice(-120000);LR.cortado=true}
+    const imgs=[];for(const i of LR.imgs.slice(-12)){try{imgs.push({nome:i.nome,tipo:"image/jpeg",b64:await imgB64(i.blob)})}catch(e){}}
+    const {data,error}=await sb.functions.invoke(LER_FN,{body:{texto,imagens:imgs,contexto:lerContexto(),exportado_por:LR.quem||S.me,desde}});
+    if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}throw new Error(m)}
+    if(data?.error)throw new Error(data.error);
+    lerCarregar(data);
+    try{await saveRow("import",today(),{key:"chat:"+LR.hash,arquivo:LR.arquivo,resumo:LR.resumo,n:LR.sug.length,por:S.me});await load()}catch(e){}
+  }catch(e){LR.fase="pronto";LR.erro=String(e.message||e);LR.semFn=/not found|404|failed to send|fetch|Function/i.test(LR.erro)}
+  render();
+}
+function lerCarregar(pk){
+  LR.resumo=pk.resumo||"";LR.fase="revisar";
+  LR.sug=(pk.sugestoes||[]).filter(s=>SGT[s.tipo]).map((s,i)=>{const x={...s,_i:i,status:"",sel:true};
+    if(x.tipo==="pendencia"){x.cat="Pendência"}
+    if(x.tipo==="nota"&&!NCATS.includes(x.cat))x.cat="Outro";
+    if(["recebimento","pagamento","custo","transferencia"].includes(x.tipo)){x.moeda=MOEDAS.includes(x.moeda)?x.moeda:"EUR";x.valor=num(x.valor);x.data=/^\d{4}-\d\d-\d\d$/.test(x.data||"")?x.data:today()}
+    if(x.tipo==="compra"){x.data=/^\d{4}-\d\d-\d\d$/.test(x.data||"")?x.data:today();x.itens=(x.itens||[]).map(it=>({codigo:byCod(it.codigo)?it.codigo:"",nome:it.nome||"",qtd:num(it.qtd)||1,preco:num(it.preco)||num(D(byCod(it.codigo)).dealer)}))}
+    if(x.tipo==="recebimento"&&!byId(x.venda_id))x.venda_id="";if((x.tipo==="pagamento"||x.tipo==="recebimento")&&!byId(x.compra_id))x.compra_id="";
+    const one=(k,o,d)=>{if(k in x||d!==undefined)x[k]=o.includes(x[k])?x[k]:(d??o[0])};
+    if(x.tipo==="recebimento"){one("recebido_por",[...SOCIOS,DIRETO],S.me);one("forma",FORMAS_R)}
+    if(x.tipo==="pagamento"){one("pago_por",SOCIOS,S.me);one("forma",FORMAS_P)}
+    if(x.tipo==="custo"){one("pago_por",SOCIOS,S.me);one("cat",CATS_C,"Outro");one("forma",["Pix","Cartão","Wire","Zelle","Dinheiro","Compensação","Outro"])}
+    if(x.tipo==="transferencia"){one("motivo",MOTIVOS,"Transferência");one("forma",FORMAS_T,"Outro")}
+    x.dup=lerDup(x);if(x.dup||x.confianca==="baixa"||((x.faltando||[]).length&&!["nota","pendencia","cliente"].includes(x.tipo))||!x.valor&&["recebimento","pagamento","custo","transferencia"].includes(x.tipo))x.sel=false;
+    return x});
+}
+function lerDup(x){
+  if(x.ja_lancado_id&&byId(x.ja_lancado_id))return byId(x.ja_lancado_id);
+  if(!["recebimento","pagamento","custo","transferencia"].includes(x.tipo)||!x.valor)return null;
+  const dd=(a,b)=>Math.abs(new Date(a)-new Date(b))/864e5;
+  return act(x.tipo).find(r=>D(r).moeda===x.moeda&&Math.abs(num(D(r).valor)-x.valor)<0.01&&dd(r.data,x.data)<=5)||null;
+}
+function lerPacote(){try{const t=$("#lpk").value.trim();const j=JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1));LR=LR||{};LR.arquivo=LR.arquivo||"pacote colado";LR.hash=LR.hash||"pk"+Date.now();lerCarregar(j);render()}catch(e){$("#lerr2").textContent="Não consegui ler o pacote: "+e.message}}
+/* campos editáveis */
+function sgSet(i,k,v){const x=LR.sug[i];x[k]=["valor"].includes(k)?num(v):v;if(k==="recebido_por"){const e=$("#sgc"+i);if(e)e.hidden=v!==DIRETO}}
+function sgFld(x,i,k,lbl,kind,opts){
+  const v=x[k]??"",on=`oninput="sgSet(${i},'${k}',this.value)" onchange="sgSet(${i},'${k}',this.value)"`;
+  let inp;
+  if(kind==="date")inp=`<input type="date" value="${esc(v)}" ${on}>`;
+  else if(kind==="num")inp=`<input inputmode="decimal" value="${v?fmtIn(v):""}" placeholder="falta o valor" ${on}>`;
+  else if(kind==="area")inp=`<textarea ${on}>${esc(v)}</textarea>`;
+  else if(kind==="sel")inp=`<select ${on}>${opts.map(o=>`<option ${o===v?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
+  else if(kind==="venda")inp=`<select ${on}><option value="">${opts?"— nenhuma —":"Escolha a venda…"}</option>${act("venda").map(z=>`<option value="${z.id}" ${z.id===v?"selected":""}>${esc(D(z).numero)} · ${esc(D(byId(D(z).cliente_id)).nome||"")}${D(z).etapa==="Reserva"?" · reserva":" · saldo "+fmt(vendaSaldo(z),D(z).moeda)}</option>`).join("")}</select>`;
+  else if(kind==="compra")inp=`<select ${on}><option value="">Escolha a compra…</option>${act("compra").map(z=>`<option value="${z.id}" ${z.id===v?"selected":""}>${esc(D(z).numero)} · ${esc(D(z).doc||D(z).fornecedor||"")} · falta ${fmt(compraSaldo(z),"EUR")}</option>`).join("")}</select>`;
+  else if(kind==="cliente")inp=`<select ${on}><option value="">— nenhum —</option>${act("cliente").map(z=>`<option value="${z.id}" ${z.id===v?"selected":""}>${esc(D(z).numero)} · ${esc(D(z).nome)}</option>`).join("")}</select>`;
+  else if(kind==="parte"){const o=partes();if(v&&!o.some(p=>p[0]===v))o.push([v,parteNome(v)]);inp=`<select ${on}><option value="">Escolha…</option>${o.map(([a,b])=>`<option value="${esc(a)}" ${a===v?"selected":""}>${esc(b)}</option>`).join("")}</select>`}
+  else inp=`<input value="${esc(v)}" ${on}>`;
+  return `<div class="f sgf ${kind==="area"?"full":""}"><label>${lbl}</label>${inp}</div>`;
+}
+function sgItens(x,i){return `<div class="f sgf full"><label>Itens</label>${(x.itens||[]).map((it,j)=>`<div class="sgit"><select onchange="LR.sug[${i}].itens[${j}].codigo=this.value;const p=byCod(this.value);if(p){LR.sug[${i}].itens[${j}].preco=D(p).dealer;render()}"><option value="">✏️ ${esc(it.nome||"texto livre")}</option>${prodsOrd().map(p=>`<option value="${esc(pCod(p))}" ${pCod(p)===it.codigo?"selected":""}>${esc(pCod(p))} · ${esc(D(p).nome)}</option>`).join("")}</select><input inputmode="decimal" value="${fmtN(it.qtd,0)}" title="qtd" oninput="LR.sug[${i}].itens[${j}].qtd=num(this.value)"><input inputmode="decimal" value="${fmtIn(it.preco)}" title="€ unit." placeholder="€" oninput="LR.sug[${i}].itens[${j}].preco=num(this.value)"><button type="button" class="linkbtn" onclick="LR.sug[${i}].itens.splice(${j},1);render()">✕</button></div>`).join("")}<button type="button" class="chip" style="min-height:36px;padding:6px 12px" onclick="LR.sug[${i}].itens.push({codigo:'',nome:'',qtd:1,preco:0});render()">+ item</button><div class="hint">Total ${fmt(sum(x.itens||[],it=>num(it.qtd)*num(it.preco)),"EUR")} (preço dealer)</div></div>`}
+function sgCampos(x,i){const F_=(k,l,t,o)=>sgFld(x,i,k,l,t,o);switch(x.tipo){
+  case"recebimento":return F_("data","Data","date")+F_("venda_id","Venda","venda")+F_("moeda","Moeda","sel",MOEDAS)+F_("valor","Valor","num")+F_("recebido_por","Quem recebeu","sel",[...SOCIOS,DIRETO])+`<div id="sgc${i}" class="full" ${x.recebido_por===DIRETO?"":"hidden"}>${F_("compra_id","Abate de qual compra Smartdive","compra")}</div>`+F_("forma","Forma","sel",FORMAS_R)+F_("obs","Observação","txt");
+  case"pagamento":return F_("data","Data","date")+F_("compra_id","Compra","compra")+F_("moeda","Moeda","sel",MOEDAS)+F_("valor","Valor","num")+F_("pago_por","Quem pagou","sel",SOCIOS)+F_("forma","Forma","sel",FORMAS_P)+F_("obs","Observação","txt");
+  case"custo":return F_("data","Data","date")+F_("cat","Tipo","sel",CATS_C)+F_("desc","Descrição","txt")+F_("moeda","Moeda","sel",MOEDAS)+F_("valor","Valor","num")+F_("pago_por","Quem pagou","sel",SOCIOS)+F_("forma","Forma","sel",["Pix","Cartão","Wire","Zelle","Dinheiro","Compensação","Outro"])+F_("venda_id","Ligado a venda","venda",1);
+  case"transferencia":return F_("data","Data","date")+F_("de","Quem pagou / deu","parte")+F_("para","Quem recebeu","parte")+F_("motivo","Motivo","sel",MOTIVOS)+F_("moeda","Moeda","sel",MOEDAS)+F_("valor","Valor","num")+F_("forma","Forma","sel",FORMAS_T)+F_("desc","Descrição","txt");
+  case"compra":return F_("data","Data","date")+F_("fornecedor","Fornecedor","txt")+F_("doc","Nº pró-forma / referência","txt")+sgItens(x,i)+F_("venda_id","Para qual venda","venda",1)+F_("obs","Observação","area");
+  case"cliente":return F_("nome","Nome (como é chamado)","txt")+F_("nome_completo","Nome completo","txt")+F_("telefone","Telefone","txt")+F_("email","E-mail","txt")+F_("endereco","Endereço","area");
+  default:return F_("titulo","Título","txt")+(x.tipo==="nota"?F_("cat","Categoria","sel",NCATS):"")+F_("cliente_id","Ligada a cliente","cliente")+F_("texto","Texto","area");
+}}
+function sgCard(x,i){const [ic,nm]=SGT[x.tipo];
+  if(x.status==="ok")return `<div class="card sg done"><div class="l1"><b>✓ ${ic} ${nm} lançado</b><span><button class="chip" onclick='abrir(byId("${x.rid}"))'>Abrir</button></span></div><div class="small mut">${esc(x.titulo||x.desc||x.motivo||"")}</div></div>`;
+  if(x.status==="x")return `<div class="card sg off"><div class="l1"><b class="mut">${ic} ${nm} · descartado</b><button class="linkbtn" onclick="LR.sug[${i}].status='';render()">desfazer</button></div></div>`;
+  return `<div class="card sg ${x.sel?"on":""}"><div class="sgh"><label class="ck"><input type="checkbox" ${x.sel?"checked":""} onchange="LR.sug[${i}].sel=this.checked;this.closest('.sg').classList.toggle('on',this.checked);lerBar()"><b>${ic} ${nm}</b></label>${st(x.confianca==="alta"?"certeza alta":x.confianca==="media"?"conferir":"duvidoso",x.confianca==="alta"?"ok":"warn")}</div>
+   ${x.porque?`<div class="sgm">${esc(x.porque)}</div>`:""}
+   ${x.evidencia?`<div class="sge">“${esc(x.evidencia)}”</div>`:""}
+   ${x.dup?`<div class="sgw">⚠️ Parece já lançado: ${esc(TIPOS[x.dup.tipo]||"")} ${esc(resumo(x.dup))} · ${dCurta(x.dup.data)}. Deixei desmarcado.</div>`:""}
+   ${(x.faltando||[]).length?`<div class="sgw">Falta: ${x.faltando.map(esc).join(", ")}</div>`:""}
+   <div class="sgg">${sgCampos(x,i)}</div>
+   <div class="err" id="sge${i}"></div>
+   <div class="actions" style="margin-top:6px"><button class="btn" style="min-height:42px;padding:9px 18px;font-size:14px" id="sgb${i}" onclick="sgSalvar(${i})">✓ Conferi, lançar</button><button class="btn ghost" style="min-height:42px;padding:9px 18px;font-size:14px" onclick="LR.sug[${i}].status='x';render()">Descartar</button></div></div>`;
+}
+const ORD={cliente:0,compra:1,nota:2,pendencia:2,pagamento:3,recebimento:4,custo:5,transferencia:6};
+async function sgSalvar(i,lote){
+  const x=LR.sug[i],e=t=>{const el=$("#sge"+i);if(el)el.textContent=t;const b=$("#sgb"+i);if(b)b.disabled=false;return false};
+  const b=$("#sgb"+i);if(b)b.disabled=true;
+  const money=["recebimento","pagamento","custo","transferencia"].includes(x.tipo);
+  const origem={origem:"conversa",arquivo:LR.arquivo};
+  try{let cot=null;
+    if(money||x.tipo==="compra"){if(!x.data)return e("Falta a data.");cot=await fetchCot(x.data);if(!cotOk(cot))return e("Sem cotação para essa data. Tente de novo ou lance pelo formulário.")}
+    if(money&&!x.valor)return e("Falta o valor.");
+    let tipo=x.tipo,data=x.data||today(),dados,after=null;
+    switch(x.tipo){
+      case"recebimento":{const v=byId(x.venda_id);if(!v)return e("Escolha a venda.");const mv=D(v).moeda,dir=x.recebido_por===DIRETO;if(dir&&!byId(x.compra_id))return e("Escolha a compra Smartdive que este pagamento abate.");
+        dados={venda_id:v.id,moeda:x.moeda,valor:x.valor,cot,valor_brl:r2(conv(x.valor,x.moeda,"BRL",cot)),valor_venda:x.moeda===mv?x.valor:r2(conv(x.valor,x.moeda,mv,cot)),abate_manual:false,recebido_por:SOCIOS.includes(x.recebido_por)||dir?x.recebido_por:S.me,forma:x.forma||"Outro",obs:x.obs||"",compra_id:dir?x.compra_id:"",par_id:"",...origem};after=dir?syncPar:null;break}
+      case"pagamento":{if(!byId(x.compra_id))return e("Escolha a compra.");dados={compra_id:x.compra_id,moeda:x.moeda,valor:x.valor,cot,valor_brl:r2(conv(x.valor,x.moeda,"BRL",cot)),valor_eur:r2(conv(x.valor,x.moeda,"EUR",cot)),pago_por:SOCIOS.includes(x.pago_por)?x.pago_por:S.me,forma:x.forma||"Wire",obs:x.obs||"",...origem};break}
+      case"custo":dados={cat:CATS_C.includes(x.cat)?x.cat:"Outro",desc:x.desc||"",moeda:x.moeda,valor:x.valor,cot,valor_brl:r2(conv(x.valor,x.moeda,"BRL",cot)),pago_por:SOCIOS.includes(x.pago_por)?x.pago_por:S.me,forma:x.forma||"",venda_id:x.venda_id||"",...origem};break;
+      case"transferencia":if(!x.de||!x.para)return e("Escolha quem pagou e quem recebeu.");if(x.de===x.para)return e("Quem pagou e quem recebeu são a mesma pessoa.");
+        dados={de:x.de,para:x.para,motivo:x.motivo||"Transferência",forma:x.forma||"Outro",moeda:x.moeda,valor:x.valor,cot,valor_brl:r2(conv(x.valor,x.moeda,"BRL",cot)),valor_eur:r2(conv(x.valor,x.moeda,"EUR",cot)),desc:x.desc||"",obs:"",...origem};break;
+      case"compra":{const it=(x.itens||[]).filter(t=>t.codigo||t.nome);if(!it.length)return e("Adicione pelo menos um item.");
+        dados={numero:nextNum("compra","P"),fornecedor:x.fornecedor||"Smartdive",doc:x.doc||"",itens:it.map(t=>{const p=byCod(t.codigo);return{produto_id:p?.id||"",nome:p?"":t.nome,qtd:num(t.qtd)||1,preco:num(t.preco)}}),frete:0,iva:0,venda_id:x.venda_id||"",obs:x.obs||"",cot,moeda:"EUR",...origem};dados.total=r2(compraTotal({dados}));break}
+      case"cliente":if(!(x.nome||"").trim())return e("Falta o nome.");dados={numero:nextNum("cliente","C"),nome:x.nome.trim(),nome_completo:x.nome_completo||"",telefone:x.telefone||"",email:x.email||"",endereco:x.endereco||"",...origem};data=today();break;
+      default:tipo="nota";if(!(x.titulo||"").trim())return e("Falta o título.");dados={cat:x.tipo==="pendencia"?"Pendência":(NCATS.includes(x.cat)?x.cat:"Outro"),titulo:x.titulo.trim(),texto:x.texto||"",cliente_id:x.cliente_id||"",...origem};data=today();
+    }
+    const nid=await saveRow(tipo,data,dados);await load();if(after)await after(nid);
+    x.status="ok";x.rid=nid;if(!lote){toast("Lançado ✓");render()}return true;
+  }catch(err){return e("Erro ao salvar: "+(err.message||err))}
+}
+async function lerLote(){const ids=LR.sug.map((x,i)=>({x,i})).filter(o=>o.x.sel&&!o.x.status).sort((a,b)=>ORD[a.x.tipo]-ORD[b.x.tipo]);
+  if(!ids.length)return toast("Nada marcado");let ok=0;for(const o of ids){if(await sgSalvar(o.i,true))ok++}
+  toast(`${ok} de ${ids.length} lançado(s)`);render()}
+function lerBar(){const e=$("#lbar");if(!e||!LR)return;const n=LR.sug.filter(x=>x.sel&&!x.status).length;e.innerHTML=`<span><b>${n}</b> marcada(s) · ${LR.sug.filter(x=>x.status==="ok").length} lançada(s) · ${LR.sug.filter(x=>!x.status).length} pendente(s)</span><button class="btn" style="min-height:42px;padding:9px 18px;font-size:14px" ${n?"":"disabled"} onclick="lerLote()">Lançar ${n} marcada(s)</button>`}
+function viewLer(){
+  const L=LR||{fase:"inicio"};
+  const head=`${backTo("home")}<div class="lbl">Importar</div><h2>📥 Ler conversa</h2>
+  <div class="hint" style="margin:-6px 0 12px">Exporte a conversa do WhatsApp (de preferência <b>com mídia</b>, para os comprovantes virem junto) e solte o .zip aqui. O app lê e <b>sugere</b> os lançamentos. Nada entra no sistema antes de alguém conferir e dar ok.</div>`;
+  if(L.fase==="inicio"||L.fase==="lendo")return `${head}
+   <label class="card dropz" id="ldz"><input type="file" accept=".zip,.txt,.json,image/*" multiple hidden onchange="lerArquivos([...this.files])"><span style="font-size:34px">💬</span><b>${L.fase==="lendo"?"Abrindo arquivo…":"Solte aqui o .zip da conversa"}</b><small>ou toque para escolher · .zip do WhatsApp, .txt ou prints</small></label>
+   ${L.erro?`<div class="err">${esc(L.erro)}</div>`:""}
+   <details class="card" style="margin-top:12px"><summary class="small">Tenho um pacote pronto (gerado pelo Claude) · pode soltar o .json acima ou colar aqui</summary><div class="f" style="margin-top:10px"><textarea id="lpk" placeholder='Cole aqui o pacote {"resumo":…,"sugestoes":[…]}' style="min-height:120px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></textarea></div><div class="err" id="lerr2"></div><button class="chip" onclick="lerPacote()">Conferir pacote</button></details>
+   <div class="sec"><b>Como exportar</b><i></i></div><div class="card small mut" style="line-height:1.6">iPhone: abra o grupo → toque no nome → <b>Exportar conversa</b> → <b>Anexar mídia</b> → salve/mande o .zip.<br>Android: ⋮ → Mais → <b>Exportar conversa</b> → <b>Incluir mídia</b>.</div>`;
+  if(L.fase==="pronto"||L.fase==="analisando"){const nl=(L.texto.match(/\n/g)||[]).length+1;return `${head}
+   <div class="card"><dl class="kv"><dt>Arquivo</dt><dd>${esc(L.arquivo)}</dd><dt>Mensagens (linhas)</dt><dd>${fmtN(nl,0)}</dd><dt>Imagens</dt><dd>${L.imgs.length}${L.imgs.length>12?" (vou ler as 12 últimas)":""}</dd></dl>
+   ${L.antes?`<div class="sgw" style="margin-top:10px">⚠️ Esta mesma conversa já foi lida em ${dCurta(L.antes.data)} por ${esc(D(L.antes).por||"")}. As sugestões vão marcar o que já estiver lançado.</div>`:""}
+   ${!L.imgs.length&&/omitted|omitid|ocult/i.test(L.texto)?`<div class="sgw" style="margin-top:10px">A conversa veio <b>sem mídia</b>: os prints de comprovante não estão no arquivo, então valores que só aparecem em imagem vão ficar em branco para você preencher.</div>`:""}</div>
+   <div class="row2" style="margin-top:12px"><div class="f"><label>Quem exportou? (“You”/“Você” na conversa)</label><select onchange="LR.quem=this.value">${SOCIOS.map(n=>`<option ${n===(L.quem||S.me)?"selected":""}>${n}</option>`).join("")}</select></div>
+   <div class="f"><label>Ler só a partir de (opcional)</label><input type="date" id="ldesde" value="${esc(L.desde||"")}"></div></div>
+   ${L.erro?`<div class="card banner"><b>Não deu para ler agora.</b><div class="small" style="margin-top:6px">${esc(L.erro)}</div>${L.semFn?`<div class="small mut" style="margin-top:8px">A leitura automática ainda não está ligada no Supabase (função <b>${LER_FN}</b>). Enquanto isso, mande o .zip para o Claude e cole o pacote que ele gerar na tela anterior.</div>`:""}</div>`:""}
+   <div class="actions"><button class="btn" id="lbtn" ${L.fase==="analisando"?"disabled":""} onclick="lerAnalisar()">${L.fase==="analisando"?"Lendo… (pode levar até 1 min)":"🔎 Ler e sugerir lançamentos"}</button><button class="btn ghost" onclick="LR=null;render()">Trocar arquivo</button></div>
+   <details style="margin-top:10px"><summary class="small mut">Ver texto da conversa</summary><pre class="card small" style="white-space:pre-wrap;max-height:320px;overflow:auto;margin-top:8px">${esc(L.texto.slice(0,20000))}</pre></details>`}
+  const cnt=t=>L.sug.filter(x=>x.tipo===t).length;
+  return `${head}
+   <div class="card banner"><div class="lbl">Resumo da conversa</div><div style="font-size:13.5px;margin-top:4px;white-space:pre-wrap">${esc(L.resumo||"—")}</div><div class="small mut" style="margin-top:8px">${esc(L.arquivo)} · ${L.sug.length} sugestão(ões)</div></div>
+   <div class="hint" style="margin:-4px 0 10px">Confira cada cartão: corrija o que precisar e toque <b>✓ Conferi, lançar</b>. Itens duvidosos, sem valor ou que parecem repetidos já vêm desmarcados.</div>
+   <div class="list">${L.sug.map(sgCard).join("")||'<div class="empty">Nada para lançar nesta conversa.</div>'}</div>
+   <div class="lbar card" id="lbar"></div>
+   <div class="actions"><button class="btn ghost" onclick="LR=null;render()">Ler outra conversa</button><button class="btn ghost" onclick="go('mov')">Ver movimentação</button></div>`;
+}
 /* ===== Start ===== */
 $("#brand").onclick=()=>go("home");
 (async()=>{
